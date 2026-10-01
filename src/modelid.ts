@@ -32,11 +32,16 @@ export function detectFamily(text: string, make = "BMW"): string | null {
   return best;
 }
 
+const MAX_PS_GAP = 30;
 const minPsDist = (g: Generation, ps: number) => Math.min(...g.versions.map((v) => Math.abs(v.ps - ps)));
 
 /** Retourne null si le véhicule est hors périmètre (pas un modèle M du référentiel). */
 export function resolve(title: string, year: number | null, powerPs: number | null, make = "BMW", modelHint = ""): Resolved | null {
-  const fam = detectFamily(`${modelHint} ${title}`, make) || detectFamily(modelHint, make);
+  // Une désignation M Performance explicite (M340d, M550i, M850i…) prime sur le préfixe « M3 » que la plateforme met parfois en tête du titre.
+  const perf = (title || "").match(/(?<![a-z0-9])m\s?\d{3}\s?[a-z]{0,2}(?![a-z0-9])/gi);
+  let fam: string | null;
+  if (perf) { fam = detectFamily(perf.join(" "), make); if (!fam) return null; } // M Performance hors référentiel : hors périmètre
+  else fam = detectFamily(`${modelHint} ${title}`, make) || detectFamily(modelHint, make);
   if (!fam) return null;
   const gens = REF[make].families[fam].generations;
   let conf = 1.0;
@@ -65,6 +70,8 @@ export function resolve(title: string, year: number | null, powerPs: number | nu
     const v = versions.reduce((a, b) => (Math.abs(a.ps - powerPs) <= Math.abs(b.ps - powerPs) ? a : b));
     const gap = Math.abs(v.ps - powerPs);
     version = v.name;
+    // puissance incompatible avec la génération (autre motorisation mal étiquetée, véhicule préparé) : exclu de la cote
+    if (gap > MAX_PS_GAP) return null;
     if (gap > 25) conf = Math.min(conf, 0.5);
     else if (gap > 8) conf = Math.min(conf, 0.8);
   }

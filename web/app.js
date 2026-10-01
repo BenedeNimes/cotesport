@@ -231,14 +231,19 @@ async function loadSources() {
   const st = h.status;
   $("#s-status").textContent = st.running ? `Collecte en cours : ${st.current || "…"}` : "Aucune collecte en cours.";
   $("#btn-collect").disabled = st.running;
+  $("#btn-stop").hidden = !st.running;
   const badge = (x) => ({ ok: '<span class="good">ok</span>', blocked: '<span class="bad">bloqué</span>', empty: '<span class="warn">rien reconnu</span>', partial: '<span class="warn">partiel</span>', error: '<span class="bad">erreur</span>', running: "en cours" }[x] || esc(x));
   const rows = s.sources.map((n) => h.last.find((r) => r.source === n) || { source: n });
   $("#stable tbody").innerHTML = rows.map((r) => `<tr><td>${esc(names[r.source] || r.source)}</td>
     <td>${r.finished_at ? new Date(r.finished_at).toLocaleString("fr-CH", { dateStyle: "short", timeStyle: "short" }) : "jamais"}</td><td>${r.status ? badge(r.status) : "—"}</td>
     <td class="num">${r.pages ?? "—"}</td><td class="num">${r.found ?? "—"}</td><td class="num">${r.new ?? "—"}</td><td class="num">${r.removed ?? "—"}</td><td>${esc(r.message || "")}</td></tr>`).join("");
-  $("#s-settings").textContent = `Collecte automatique ${s.scheduler ? "chaque jour vers " + s.collect_hour + " h (heure de Zurich)" : "désactivée"} · pause entre requêtes ~${s.delay_s} s · robots.txt ${s.robots ? "respecté" : "ignoré"} · mode ${s.mode}. Taux de change : ${h.fx ? h.fx.chf_eur.toFixed(4) + " (" + h.fx.source + ")" : "—"}.`;
+  $("#s-settings").textContent = `Collecte automatique ${s.scheduler ? "tous les jours à " + s.collect_hour : "désactivée"} · pause entre requêtes ~${s.delay_s} s · robots.txt ${s.robots ? "respecté" : "ignoré"} · mode ${s.mode}. Taux de change : ${h.fx ? h.fx.chf_eur.toFixed(4) + " (" + h.fx.source + ")" : "—"}.`;
   if (st.running) setTimeout(() => $("#tab-sources").classList.contains("on") && loadSources(), 5000);
 }
+$("#btn-stop").addEventListener("click", async () => {
+  try { await api("/api/collect/stop", { method: "POST" }); $("#s-status").textContent = "Arrêt demandé : la collecte s'interrompt après la page en cours…"; } catch (e) { alert(e.message); }
+  setTimeout(loadSources, 3000);
+});
 $("#btn-collect").addEventListener("click", async () => {
   try { await api("/api/collect", { method: "POST" }); } catch (e) { alert(e.message); }
   setTimeout(loadSources, 800);

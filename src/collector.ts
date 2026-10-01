@@ -25,6 +25,30 @@ async function acquire(sql: Sql, ms: number): Promise<boolean> {
   return rows.length > 0;
 }
 const release = (sql: Sql) => sql`UPDATE locks SET until = now() - interval '1 second' WHERE name = 'collect'`;
+export const requestStop = (sql: Sql) => sql`INSERT INTO locks(name, until) VALUES ('stop', now() + interval '30 minutes') ON CONFLICT (name) DO UPDATE SET until = EXCLUDED.until`;
+const clearStop = (sql: Sql) => sql`UPDATE locks SET until = now() - interval '1 second' WHERE name = 'stop'`;
+export async function stopRequested(sql: Sql): Promise<boolean> {
+  const r = await sql`SELECT 1 FROM locks WHERE name = 'stop' AND until > now()`;
+  return r.length > 0;
+}
+
+/** Réévalue le modèle de toutes les annonces avec les règles actuelles (corrige les erreurs de classement passées). */
+export async function reclassifyAll(sql: Sql): Promise<number> {
+  const rows = await sql`SELECT id, title, year, power_ps, make, segment, version, model_conf FROM listings`;
+  let changed = 0;
+  for (const r of rows) {
+    const res = resolve(r.title, r.year, r.power_ps, r.make ?? "BMW");
+    if (!res) {
+      if (r.segment !== null) { await sql`UPDATE listings SET family = NULL, generation = NULL, version = NULL, segment = NULL, model_conf = NULL WHERE id = ${r.id}`; changed++; }
+    } else if (res.segment !== r.segment || res.version !== r.version) {
+      await sql`UPDATE listings SET family = ${res.family}, generation = ${res.generation}, version = ${res.version}, segment = ${res.segment}, model_conf = ${res.confidence} WHERE id = ${r.id}`;
+      changed++;
+    }
+  }
+  if (changed) await refreshStats(sql);
+  return changed;
+}
+
 export async function isRunning(sql: Sql): Promise<boolean> {
   const r = await sql`SELECT 1 FROM locks WHERE name = 'collect' AND until > now()`;
   return r.length > 0;
@@ -171,6 +195,8 @@ async function processDetail(sql: Sql, src: Source, fetcher: Fetcher, fx: number
     if (e.res) {
       await sql`UPDATE listings SET family = ${e.res.family}, generation = ${e.res.generation}, version = ${e.res.version},
                 segment = ${e.res.segment}, model_conf = ${e.res.confidence} WHERE id = ${r.id}`;
+    } else {
+      await sql`UPDATE listings SET family = NULL, generation = NULL, version = NULL, segment = NULL, model_conf = NULL WHERE id = ${r.id}`;
     }
     c.details++;
   } catch (err) {
@@ -231,7 +257,9 @@ export async function runCycle(sql: Sql, cfg: CollectConfig, budgetMs: number, o
   const deadline = Date.now() + budgetMs;
   const out: CycleResult = { sources: {} };
   STATUS.running = true;
+  await clearStop(sql);
   try {
+    await reclassifyAll(sql);
     const fx = await getFx(sql, cfg.fxFallback);
     out.fx = fx;
     const fetcher = new Fetcher({ delayS: cfg.delayS, respectRobots: cfg.respectRobots });
@@ -243,6 +271,7 @@ export async function runCycle(sql: Sql, cfg: CollectConfig, budgetMs: number, o
     }));
   } finally {
     STATUS.running = false; STATUS.current = "";
+    await clearStop(sql);
     await release(sql);
   }
   return out;
@@ -261,7 +290,7 @@ async function work(sql: Sql, src: Source, fetcher: Fetcher, fx: number, cfg: Co
   }
   let did = 0;
   try {
-    while (Date.now() < deadline - 25_000) {
+    while (Date.now() < deadline - 25_000 && !(await stopRequested(sql))) {
       const t = await sql`SELECT id, qkey, page FROM crawl_queue WHERE day = CURRENT_DATE AND source = ${src.name} AND status = 'pending' ORDER BY id LIMIT 1`;
       if (t.length) {
         try { await processTask(sql, src, fetcher, fx, { id: t[0].id, qkey: t[0].qkey, page: t[0].page }); did++; }
@@ -288,7 +317,7 @@ async function work(sql: Sql, src: Source, fetcher: Fetcher, fx: number, cfg: Co
     throw e;
   }
   await finalize(sql, src, cfg);
-  return `${did} étapes`;
+  return (await stopRequested(sql)) ? `arrêtée (${did} étapes)` : `${did} étapes`;
 }
 
 export { sleep };

@@ -2,7 +2,7 @@
 import { WEB } from "./webassets";
 import { waitUntil } from "@neon/functions";
 import { db, type Sql } from "./db";
-import { STATUS, isRunning, refreshStats, runCycle, type CollectConfig } from "./collector";
+import { STATUS, isRunning, requestStop, reclassifyAll, refreshStats, runCycle, type CollectConfig } from "./collector";
 import { median } from "./linalg";
 import { catalogPublic } from "./options";
 import { reference } from "./modelid";
@@ -162,6 +162,12 @@ export async function handle(req: Request): Promise<Response> {
       waitUntil(runCycle(sql, collectConfig(), CYCLE_BUDGET_MS, only ? [only] : undefined).catch((e) => console.error("cycle", e)));
       return json({ started: true });
     }
+    if (path === "/api/collect/stop" && req.method === "POST") {
+      if (!(await isRunning(sql))) return json({ stopped: false, message: "Aucune collecte en cours" });
+      await requestStop(sql);
+      return json({ stopped: true });
+    }
+    if (path === "/api/reclassify" && req.method === "POST") return json({ changed: await reclassifyAll(sql) });
     if (path === "/api/demo") return fail(404, "Pas de données de démonstration : l'outil travaille sur les annonces réelles.");
   } catch (e) {
     console.error(path, e);
@@ -244,7 +250,7 @@ async function health(sql: Sql) {
   return {
     last: last.map((r) => ({ ...r, finished_at: r.finished_at ?? null, status: r.status })), history: hist, fx, by_source: bySrc, queue, blocked,
     status: { running, current: STATUS.current },
-    settings: { sources: cfg.sources, delay_s: cfg.delayS, robots: cfg.respectRobots, mode: "http", collect_hour: "toute la journée (reprise toutes les 15 min)", scheduler: true },
+    settings: { sources: cfg.sources, delay_s: cfg.delayS, robots: cfg.respectRobots, mode: "http", collect_hour: "11 h et 19 h (heure de Paris)", scheduler: true },
   };
 }
 

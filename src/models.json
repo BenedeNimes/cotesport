@@ -1,105 +1,510 @@
 {
-  "_comment": "Référentiel des modèles. Années = année de première immatriculation (approximatif). Pour ajouter une marque ou un modèle, ajoutez une entrée sous 'makes' : le reste de l'outil s'adapte.",
-  "makes": {
-    "BMW": {
-      "families": {
-        "M2": {
-          "patterns": ["(?<![a-z0-9])m2(?![a-z0-9])"],
-          "generations": [
-            {"code": "F87", "years": [2016, 2021], "versions": [
-              {"name": "M2", "ps": 370}, {"name": "M2 Competition", "ps": 410}, {"name": "M2 CS", "ps": 450}]},
-            {"code": "G87", "years": [2022, 2035], "versions": [{"name": "M2", "ps": 460}]}
-          ]
+ "_comment": "Référentiel des modèles. Années = année de première immatriculation (approximatif). Pour ajouter une marque ou un modèle, ajoutez une entrée sous 'makes' : le reste de l'outil s'adapte.",
+ "makes": {
+  "BMW": {
+   "families": {
+    "M2": {
+     "patterns": [
+      "(?<![a-z0-9])m2(?![a-z0-9])"
+     ],
+     "generations": [
+      {
+       "code": "F87",
+       "years": [
+        2016,
+        2021
+       ],
+       "versions": [
+        {
+         "name": "M2",
+         "ps": 370
         },
-        "M3": {
-          "patterns": ["(?<![a-z0-9])m3(?![a-z0-9])"],
-          "generations": [
-            {"code": "E9x", "years": [2007, 2013], "versions": [
-              {"name": "M3", "ps": 420}, {"name": "M3 GTS", "ps": 450}]},
-            {"code": "F80", "years": [2014, 2020], "versions": [
-              {"name": "M3", "ps": 431}, {"name": "M3 Competition", "ps": 450}, {"name": "M3 CS", "ps": 460}]},
-            {"code": "G80", "years": [2021, 2035], "versions": [
-              {"name": "M3", "ps": 480}, {"name": "M3 Competition", "ps": 510}]}
-          ]
+        {
+         "name": "M2 Competition",
+         "ps": 410
         },
-        "M4": {
-          "patterns": ["(?<![a-z0-9])m4(?![a-z0-9])"],
-          "generations": [
-            {"code": "F82", "years": [2014, 2020], "versions": [
-              {"name": "M4", "ps": 431}, {"name": "M4 Competition", "ps": 450}, {"name": "M4 CS", "ps": 460}, {"name": "M4 GTS", "ps": 500}]},
-            {"code": "G82", "years": [2021, 2035], "versions": [
-              {"name": "M4", "ps": 480}, {"name": "M4 Competition", "ps": 510}, {"name": "M4 CS", "ps": 550}, {"name": "M4 CSL", "ps": 550}]}
-          ]
-        },
-        "M5": {
-          "patterns": ["(?<![a-z0-9])m5(?![a-z0-9])"],
-          "generations": [
-            {"code": "E60", "years": [2005, 2010], "versions": [{"name": "M5", "ps": 507}]},
-            {"code": "F10", "years": [2011, 2016], "versions": [
-              {"name": "M5", "ps": 560}, {"name": "M5 Competition", "ps": 575}, {"name": "M5 30 Jahre", "ps": 600}]},
-            {"code": "F90", "years": [2017, 2023], "versions": [
-              {"name": "M5", "ps": 600}, {"name": "M5 Competition", "ps": 625}, {"name": "M5 CS", "ps": 635}]},
-            {"code": "G90", "years": [2024, 2035], "versions": [{"name": "M5", "ps": 727}]}
-          ]
-        },
-        "M6": {
-          "patterns": ["(?<![a-z0-9])m6(?![a-z0-9])"],
-          "generations": [
-            {"code": "E6x", "years": [2005, 2010], "versions": [{"name": "M6", "ps": 507}]},
-            {"code": "F1x", "years": [2012, 2019], "versions": [
-              {"name": "M6", "ps": 560}, {"name": "M6 Competition", "ps": 575}]}
-          ]
-        },
-        "M8": {
-          "patterns": ["(?<![a-z0-9])m8(?![a-z0-9])"],
-          "generations": [
-            {"code": "F9x", "years": [2019, 2035], "versions": [
-              {"name": "M8", "ps": 600}, {"name": "M8 Competition", "ps": 625}]}
-          ]
-        },
-        "1M": {
-          "patterns": ["(?<![a-z0-9])1\\s?m\\s?(coup|cabrio)", "1er\\s?m\\s?coup", "1\\s?series\\s?m\\s?coup"],
-          "generations": [
-            {"code": "E82", "years": [2011, 2012], "versions": [{"name": "1M Coupé", "ps": 340}]}
-          ]
-        },
-        "M135i": {
-          "patterns": ["(?<![a-z0-9])m\\s?135\\s?i?(?![a-z0-9])"],
-          "generations": [
-            {"code": "F20", "years": [2012, 2019], "versions": [
-              {"name": "M135i", "ps": 320}, {"name": "M135i (2015+)", "ps": 326}]},
-            {"code": "F40", "years": [2019, 2035], "versions": [{"name": "M135i xDrive", "ps": 306}]}
-          ]
-        },
-        "M140i": {
-          "patterns": ["(?<![a-z0-9])m\\s?140\\s?i?(?![a-z0-9])"],
-          "generations": [
-            {"code": "F20", "years": [2016, 2019], "versions": [{"name": "M140i", "ps": 340}]}
-          ]
-        },
-        "M240i": {
-          "patterns": ["(?<![a-z0-9])m\\s?2[34]0\\s?i?(?![a-z0-9])", "(?<![a-z0-9])m\\s?235\\s?i?(?![a-z0-9])"],
-          "generations": [
-            {"code": "F22", "years": [2014, 2021], "versions": [
-              {"name": "M235i", "ps": 326}, {"name": "M240i", "ps": 340}]},
-            {"code": "G42", "years": [2022, 2035], "versions": [{"name": "M240i xDrive", "ps": 374}]}
-          ]
-        },
-        "M340i": {
-          "patterns": ["(?<![a-z0-9])m\\s?340\\s?i(?![a-z0-9])"],
-          "generations": [
-            {"code": "G20", "years": [2019, 2035], "versions": [
-              {"name": "M340i", "ps": 374}, {"name": "M340i (LCI)", "ps": 387}]}
-          ]
-        },
-        "M440i": {
-          "patterns": ["(?<![a-z0-9])m\\s?440\\s?i(?![a-z0-9])"],
-          "generations": [
-            {"code": "G22", "years": [2020, 2035], "versions": [
-              {"name": "M440i", "ps": 374}, {"name": "M440i (LCI)", "ps": 387}]}
-          ]
+        {
+         "name": "M2 CS",
+         "ps": 450
         }
+       ]
+      },
+      {
+       "code": "G87",
+       "years": [
+        2022,
+        2035
+       ],
+       "versions": [
+        {
+         "name": "M2",
+         "ps": 460
+        }
+       ]
       }
+     ]
+    },
+    "M3": {
+     "patterns": [
+      "(?<![a-z0-9])m3(?![a-z0-9])"
+     ],
+     "generations": [
+      {
+       "code": "E9x",
+       "years": [
+        2007,
+        2013
+       ],
+       "versions": [
+        {
+         "name": "M3",
+         "ps": 420
+        },
+        {
+         "name": "M3 GTS",
+         "ps": 450
+        }
+       ]
+      },
+      {
+       "code": "F80",
+       "years": [
+        2014,
+        2020
+       ],
+       "versions": [
+        {
+         "name": "M3",
+         "ps": 431
+        },
+        {
+         "name": "M3 Competition",
+         "ps": 450
+        },
+        {
+         "name": "M3 CS",
+         "ps": 460
+        }
+       ]
+      },
+      {
+       "code": "G80",
+       "years": [
+        2021,
+        2035
+       ],
+       "versions": [
+        {
+         "name": "M3",
+         "ps": 480
+        },
+        {
+         "name": "M3 Competition",
+         "ps": 510
+        }
+       ]
+      }
+     ]
+    },
+    "M4": {
+     "patterns": [
+      "(?<![a-z0-9])m4(?![a-z0-9])"
+     ],
+     "generations": [
+      {
+       "code": "F82",
+       "years": [
+        2014,
+        2020
+       ],
+       "versions": [
+        {
+         "name": "M4",
+         "ps": 431
+        },
+        {
+         "name": "M4 Competition",
+         "ps": 450
+        },
+        {
+         "name": "M4 CS",
+         "ps": 460
+        },
+        {
+         "name": "M4 GTS",
+         "ps": 500
+        }
+       ]
+      },
+      {
+       "code": "G82",
+       "years": [
+        2021,
+        2035
+       ],
+       "versions": [
+        {
+         "name": "M4",
+         "ps": 480
+        },
+        {
+         "name": "M4 Competition",
+         "ps": 510
+        },
+        {
+         "name": "M4 CS",
+         "ps": 550
+        },
+        {
+         "name": "M4 CSL",
+         "ps": 550
+        }
+       ]
+      }
+     ]
+    },
+    "M5": {
+     "patterns": [
+      "(?<![a-z0-9])m5(?![a-z0-9])"
+     ],
+     "generations": [
+      {
+       "code": "E60",
+       "years": [
+        2005,
+        2010
+       ],
+       "versions": [
+        {
+         "name": "M5",
+         "ps": 507
+        }
+       ]
+      },
+      {
+       "code": "F10",
+       "years": [
+        2011,
+        2016
+       ],
+       "versions": [
+        {
+         "name": "M5",
+         "ps": 560
+        },
+        {
+         "name": "M5 Competition",
+         "ps": 575
+        },
+        {
+         "name": "M5 30 Jahre",
+         "ps": 600
+        }
+       ]
+      },
+      {
+       "code": "F90",
+       "years": [
+        2017,
+        2023
+       ],
+       "versions": [
+        {
+         "name": "M5",
+         "ps": 600
+        },
+        {
+         "name": "M5 Competition",
+         "ps": 625
+        },
+        {
+         "name": "M5 CS",
+         "ps": 635
+        }
+       ]
+      },
+      {
+       "code": "G90",
+       "years": [
+        2024,
+        2035
+       ],
+       "versions": [
+        {
+         "name": "M5",
+         "ps": 727
+        }
+       ]
+      }
+     ]
+    },
+    "M6": {
+     "patterns": [
+      "(?<![a-z0-9])m6(?![a-z0-9])"
+     ],
+     "generations": [
+      {
+       "code": "E6x",
+       "years": [
+        2005,
+        2010
+       ],
+       "versions": [
+        {
+         "name": "M6",
+         "ps": 507
+        }
+       ]
+      },
+      {
+       "code": "F1x",
+       "years": [
+        2012,
+        2019
+       ],
+       "versions": [
+        {
+         "name": "M6",
+         "ps": 560
+        },
+        {
+         "name": "M6 Competition",
+         "ps": 575
+        }
+       ]
+      }
+     ]
+    },
+    "M8": {
+     "patterns": [
+      "(?<![a-z0-9])m8(?![a-z0-9])"
+     ],
+     "generations": [
+      {
+       "code": "F9x",
+       "years": [
+        2019,
+        2035
+       ],
+       "versions": [
+        {
+         "name": "M8",
+         "ps": 600
+        },
+        {
+         "name": "M8 Competition",
+         "ps": 625
+        }
+       ]
+      }
+     ]
+    },
+    "1M": {
+     "patterns": [
+      "(?<![a-z0-9])1\\s?m\\s?(coup|cabrio)",
+      "1er\\s?m\\s?coup",
+      "1\\s?series\\s?m\\s?coup"
+     ],
+     "generations": [
+      {
+       "code": "E82",
+       "years": [
+        2011,
+        2012
+       ],
+       "versions": [
+        {
+         "name": "1M Coupé",
+         "ps": 340
+        }
+       ]
+      }
+     ]
+    },
+    "M135i": {
+     "patterns": [
+      "(?<![a-z0-9])m\\s?135\\s?i?(?![a-z0-9])"
+     ],
+     "generations": [
+      {
+       "code": "F20",
+       "years": [
+        2012,
+        2019
+       ],
+       "versions": [
+        {
+         "name": "M135i",
+         "ps": 320
+        },
+        {
+         "name": "M135i (2015+)",
+         "ps": 326
+        }
+       ]
+      },
+      {
+       "code": "F40",
+       "years": [
+        2019,
+        2035
+       ],
+       "versions": [
+        {
+         "name": "M135i xDrive",
+         "ps": 306
+        }
+       ]
+      }
+     ]
+    },
+    "M140i": {
+     "patterns": [
+      "(?<![a-z0-9])m\\s?140\\s?i?(?![a-z0-9])"
+     ],
+     "generations": [
+      {
+       "code": "F20",
+       "years": [
+        2016,
+        2019
+       ],
+       "versions": [
+        {
+         "name": "M140i",
+         "ps": 340
+        }
+       ]
+      }
+     ]
+    },
+    "M240i": {
+     "patterns": [
+      "(?<![a-z0-9])m\\s?2[34]0\\s?i?(?![a-z0-9])",
+      "(?<![a-z0-9])m\\s?235\\s?i?(?![a-z0-9])"
+     ],
+     "generations": [
+      {
+       "code": "F22",
+       "years": [
+        2014,
+        2021
+       ],
+       "versions": [
+        {
+         "name": "M235i",
+         "ps": 326
+        },
+        {
+         "name": "M240i",
+         "ps": 340
+        }
+       ]
+      },
+      {
+       "code": "G42",
+       "years": [
+        2022,
+        2035
+       ],
+       "versions": [
+        {
+         "name": "M240i xDrive",
+         "ps": 374
+        }
+       ]
+      }
+     ]
+    },
+    "M340i": {
+     "patterns": [
+      "(?<![a-z0-9])m\\s?340\\s?i(?![a-z0-9])"
+     ],
+     "generations": [
+      {
+       "code": "G20",
+       "years": [
+        2019,
+        2035
+       ],
+       "versions": [
+        {
+         "name": "M340i",
+         "ps": 374
+        },
+        {
+         "name": "M340i (LCI)",
+         "ps": 387
+        }
+       ]
+      }
+     ]
+    },
+    "M440i": {
+     "patterns": [
+      "(?<![a-z0-9])m\\s?440\\s?i(?![a-z0-9])"
+     ],
+     "generations": [
+      {
+       "code": "G22",
+       "years": [
+        2020,
+        2035
+       ],
+       "versions": [
+        {
+         "name": "M440i",
+         "ps": 374
+        },
+        {
+         "name": "M440i (LCI)",
+         "ps": 387
+        }
+       ]
+      }
+     ]
+    },
+    "M340d": {
+     "patterns": [
+      "(?<![a-z0-9])m\\s?340\\s?d(?![a-z0-9])"
+     ],
+     "generations": [
+      {
+       "code": "G20",
+       "years": [
+        2019,
+        2035
+       ],
+       "versions": [
+        {
+         "name": "M340d",
+         "ps": 340
+        }
+       ]
+      }
+     ]
+    },
+    "M440d": {
+     "patterns": [
+      "(?<![a-z0-9])m\\s?440\\s?d(?![a-z0-9])"
+     ],
+     "generations": [
+      {
+       "code": "G22",
+       "years": [
+        2020,
+        2035
+       ],
+       "versions": [
+        {
+         "name": "M440d",
+         "ps": 340
+        }
+       ]
+      }
+     ]
     }
+   }
   }
+ }
 }
