@@ -16,7 +16,11 @@ export const collectConfig = (): CollectConfig => ({
   maxDetailsPerDay: Number(env("MAX_DETAILS_PER_DAY", "1200")),
   staleAfterDays: Number(env("STALE_AFTER_DAYS", "3")),
   fxFallback: Number(env("FX_CHF_EUR", "1.07")),
-  sources: env("SOURCES", DEFAULT_SOURCES.join(",")).split(",").map((s) => s.trim()).filter((s) => REGISTRY[s]),
+  sources: (() => {
+    const alias: Record<string, string> = { as24de: "autoscout24_de", as24ch: "autoscout24_ch" };
+    const l = env("SOURCES", "").split(",").map((s) => s.trim()).map((s) => alias[s] ?? s).filter((s) => REGISTRY[s]);
+    return l.length ? l : DEFAULT_SOURCES; // jamais de liste vide : on retombe sur toutes les sources connues
+  })(),
 });
 
 const CYCLE_BUDGET_MS = Number(env("CYCLE_BUDGET_S", "660")) * 1000;
