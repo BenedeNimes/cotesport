@@ -1,0 +1,23 @@
+{
+  "name": "cotesport",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cote des véhicules sportifs (BMW M) — marchés suisse et allemand",
+  "scripts": {
+    "build": "node scripts_genweb.mjs && esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --minify --banner:js=\"import{createRequire as ___cr}from'module';const require=___cr(import.meta.url);\" --outfile=dist/index.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "release": "npm run build && mkdir -p bundle && cp dist/index.mjs bundle/index.mjs"
+  },
+  "dependencies": {
+    "@neon/functions": "^0.11.0",
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

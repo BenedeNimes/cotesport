@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14181f">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>CoteSport — cote des sportives</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo">◢</span> CoteSport <small id="fxline"></small></div>
+  <nav id="tabs">
+    <button data-tab="market" class="on">Marché</button>
+    <button data-tab="estimate">Estimer</button>
+    <button data-tab="options">Options</button>
+    <button data-tab="listings">Annonces</button>
+    <button data-tab="watch">Suivi</button>
+    <button data-tab="sources">Sources</button>
+  </nav>
+</header>
+
+<div id="banner" class="banner" hidden></div>
+
+<main>
+  <!-- MARCHÉ -->
+  <section id="tab-market" class="tab on">
+    <div class="cards" id="kpis"></div>
+    <div class="panel">
+      <div class="panel-h"><h2>Segments</h2>
+        <label class="inline">Marché
+          <select id="mk-currency"><option value="eur">EUR</option><option value="chf">CHF</option></select></label>
+      </div>
+      <div class="scroll"><table id="segtable"><thead><tr>
+        <th data-sort="segment">Segment</th><th data-sort="n" class="num">Annonces</th><th data-sort="median_age" class="num">Âge méd.</th>
+        <th data-sort="median_km" class="num">Km méd.</th><th data-sort="median_de_eur" class="num">Médiane DE</th>
+        <th data-sort="median_ch_eur" class="num">Médiane CH</th><th data-sort="ch_premium_pct" class="num">CH vs DE</th>
+        <th data-sort="trend_pct" class="num">Tendance</th></tr></thead><tbody></tbody></table></div>
+      <p class="hint">Prix demandés (pas de transactions). La tendance n'apparaît qu'après plusieurs jours de collecte.</p>
+    </div>
+  </section>
+
+  <!-- ESTIMER -->
+  <section id="tab-estimate" class="tab">
+    <div class="grid2">
+      <form id="estform" class="panel">
+        <h2>Votre véhicule</h2>
+        <div class="row">
+          <label>Modèle<select id="f-family"></select></label>
+          <label>Génération<select id="f-gen"></select></label>
+        </div>
+        <div class="row">
+          <label>Version<select id="f-version"></select></label>
+          <label>Marché de vente<select id="f-market"><option value="CH">Suisse</option><option value="DE">Allemagne</option></select></label>
+        </div>
+        <div class="row">
+          <label>Année de mise en circulation<input type="number" id="f-year" min="2000" max="2035" value="2022"></label>
+          <label>Mois<input type="number" id="f-month" min="1" max="12" placeholder="facultatif"></label>
+        </div>
+        <div class="row">
+          <label>Kilométrage<input type="number" id="f-km" min="0" step="500" value="30000"></label>
+          <label>Km par an prévus<input type="number" id="f-kmpy" min="0" step="500" placeholder="auto"></label>
+        </div>
+        <fieldset><legend>Équipements</legend><div id="f-options" class="chips"></div></fieldset>
+        <fieldset><legend>État et historique</legend><div id="f-flags" class="chips"></div></fieldset>
+        <div class="actions">
+          <button type="submit" class="primary">Estimer</button>
+          <button type="button" id="btn-watch" class="ghost">Suivre ce véhicule</button>
+        </div>
+      </form>
+      <div id="result" class="panel result"><p class="hint">Renseignez le véhicule puis lancez l'estimation.</p></div>
+    </div>
+  </section>
+
+  <!-- OPTIONS -->
+  <section id="tab-options" class="tab">
+    <div class="panel">
+      <div class="panel-h"><h2>Quelles options pour la revente ?</h2>
+        <label class="inline">Modèle<select id="o-family"></select></label></div>
+      <div id="o-note" class="hint"></div>
+      <div id="o-groups"></div>
+    </div>
+  </section>
+
+  <!-- ANNONCES -->
+  <section id="tab-listings" class="tab">
+    <div class="panel">
+      <div class="panel-h"><h2>Annonces</h2></div>
+      <div class="filters">
+        <select id="l-family"><option value="">Tous les modèles</option></select>
+        <select id="l-market"><option value="">CH + DE</option><option value="CH">Suisse</option><option value="DE">Allemagne</option></select>
+        <select id="l-sort"><option value="gap">Meilleures affaires d'abord</option><option value="price">Prix</option><option value="recent">Plus récentes</option><option value="km">Kilométrage</option></select>
+        <input id="l-q" placeholder="Rechercher (ex. Competition)">
+      </div>
+      <div class="scroll"><table id="ltable"><thead><tr><th>Annonce</th><th class="num">Année</th><th class="num">Km</th>
+        <th class="num">Prix</th><th class="num">Cote</th><th class="num">Écart</th></tr></thead><tbody></tbody></table></div>
+      <p class="hint" id="l-count"></p>
+    </div>
+  </section>
+
+  <!-- SUIVI -->
+  <section id="tab-watch" class="tab">
+    <div class="panel"><div class="panel-h"><h2>Véhicules suivis</h2></div>
+      <div id="watchlist"><p class="hint">Rien à suivre pour l'instant. Utilisez « Suivre ce véhicule » dans l'onglet Estimer.</p></div></div>
+  </section>
+
+  <!-- SOURCES -->
+  <section id="tab-sources" class="tab">
+    <div class="panel">
+      <div class="panel-h"><h2>Collecte des données</h2>
+        <div class="actions"><button id="btn-collect" class="primary">Lancer la collecte</button></div></div>
+      <div id="s-status" class="hint"></div>
+      <div class="scroll"><table id="stable"><thead><tr><th>Source</th><th>Dernier passage</th><th>État</th><th class="num">Pages</th><th class="num">Vues</th>
+        <th class="num">Nouvelles</th><th class="num">Retirées</th><th>Message</th></tr></thead><tbody></tbody></table></div>
+      <p class="hint" id="s-settings"></p>
+    </div>
+  </section>
+</main>
+
+<div id="login" class="modal" hidden>
+  <form class="panel"><h2>Accès protégé</h2><label>Jeton d'accès<input type="password" id="tok" autocomplete="current-password"></label>
+    <button class="primary" type="submit">Entrer</button><p class="hint" id="login-err"></p></form>
+</div>
+
+<footer>Estimations statistiques indicatives à partir d'annonces publiques : ce n'est ni une expertise ni un conseil en investissement.</footer>
+<script src="app.js"></script>
+</body>
+</html>
