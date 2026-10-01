@@ -1,5 +1,6 @@
 // AutoScout24.de — pages de résultats : JSON `__NEXT_DATA__` ; page d'annonce : listingDetails.
 import { htmlToText, newParsed, parseFirstReg, parseKm, parsePower, type Parsed } from "../normalize";
+import { findColorDeep, normColor } from "../colors";
 import { pickJson, type PageResult, type Source } from "./types";
 
 const ORIGIN = "https://www.autoscout24.de";
@@ -75,6 +76,7 @@ export const as24de: Source = {
           gearbox: String(v.transmission ?? ""),
         });
         if (/schalt|manuell/i.test(it.gearbox) && !/automat/i.test(it.gearbox)) it.extraOptions.push("manual");
+        const cn = findColorDeep(l); if (cn) { it.colorName = cn; it.color = normColor(cn); }
         if (v.isCurrentlyDamaged === true) it.extraFlags.push("accident");
         if (l.seller?.type === "Dealer") it.extraFlags.push("_dealer");
         items.push(it);
@@ -97,6 +99,8 @@ export const as24de: Source = {
     if (parts.length) item.description = [item.description, ...parts].filter(Boolean).join("\n").slice(0, 12000);
     if (d.createdTimestampWithOffset) item.publishedAt = String(d.createdTimestampWithOffset);
     const v = d.vehicle ?? {};
+    const cn = findColorDeep(v) ?? findColorDeep(d);
+    if (cn && !item.color) { item.colorName = cn; item.color = normColor(cn); }
     if (v.hasFullServiceHistory === true) item.extraFlags.push("service_history");
     if (v.hadAccident === false) item.extraFlags.push("accident_free");
     if (v.hadAccident === true) item.extraFlags.push("accident");

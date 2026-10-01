@@ -95,3 +95,13 @@ CREATE TABLE IF NOT EXISTS source_state (
 );
 
 CREATE TABLE IF NOT EXISTS locks (name text PRIMARY KEY, until timestamptz NOT NULL);
+
+-- v2 : détection des ventes (2 balayages complets manqués), couleur, passages rapides / complets
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS missed_scans int NOT NULL DEFAULT 0;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS color text;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS color_name text;
+CREATE INDEX IF NOT EXISTS listings_color_idx ON listings (color);
+ALTER TABLE source_state ADD COLUMN IF NOT EXISTS last_full_at timestamptz;
+ALTER TABLE source_state ADD COLUMN IF NOT EXISTS pass_mode text;
+ALTER TABLE source_state ADD COLUMN IF NOT EXISTS pass_started_at timestamptz;
+ALTER TABLE source_state ADD COLUMN IF NOT EXISTS pass_done_at timestamptz;

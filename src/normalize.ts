@@ -18,6 +18,9 @@ export interface Parsed {
   gearbox: string;
   publishedAt: string | null;
   make: string;
+  /** famille de couleur (français) et libellé d'origine */
+  color: string | null;
+  colorName: string | null;
   /** options / indicateurs lus dans des champs structurés (en plus du texte) */
   extraOptions: string[];
   extraFlags: string[];
@@ -26,7 +29,7 @@ export interface Parsed {
 export function newParsed(p: Partial<Parsed> & Pick<Parsed, "source" | "extId" | "url" | "country" | "currency">): Parsed {
   return {
     title: "", description: "", price: null, year: null, month: null, km: null, powerPs: null, gearbox: "",
-    publishedAt: null, make: "BMW", extraOptions: [], extraFlags: [], ...p,
+    publishedAt: null, make: "BMW", color: null, colorName: null, extraOptions: [], extraFlags: [], ...p,
   };
 }
 

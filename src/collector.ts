@@ -5,6 +5,7 @@ import { Blocked, Fetcher, FetchError, RobotsDisallowed } from "./fetcher";
 import { newParsed, type Parsed } from "./normalize";
 import { extract } from "./options";
 import { resolve } from "./modelid";
+import { colorFromText } from "./colors";
 import { median } from "./linalg";
 import { REGISTRY, type Source } from "./sources";
 
@@ -34,9 +35,19 @@ export async function stopRequested(sql: Sql): Promise<boolean> {
 
 /** Réévalue le modèle de toutes les annonces avec les règles actuelles (corrige les erreurs de classement passées). */
 export async function reclassifyAll(sql: Sql): Promise<number> {
-  const rows = await sql`SELECT id, title, year, power_ps, make, segment, version, model_conf FROM listings`;
+  const rows = await sql`SELECT id, title, description, options, flags, color, year, power_ps, make, segment, version, model_conf FROM listings`;
   let changed = 0;
   for (const r of rows) {
+    // options / état / couleur relus avec le dictionnaire courant (on garde ce qui était déjà connu)
+    const [o, c] = extract(`${r.title}\n${r.description ?? ""}`);
+    const oldO: string[] = Array.isArray(r.options) ? r.options : [], oldF: string[] = Array.isArray(r.flags) ? r.flags : [];
+    const newO = uniq([...oldO, ...o]), newF = uniq([...oldF, ...c.filter((f) => !f.startsWith("_"))]);
+    const [col, colName] = r.color ? [null, null] : colorFromText(`${r.title}\n${r.description ?? ""}`);
+    if (newO.length !== oldO.length || newF.length !== oldF.length || col) {
+      await sql`UPDATE listings SET options = ${JSON.stringify(newO)}::text::jsonb, flags = ${JSON.stringify(newF)}::text::jsonb,
+                color = COALESCE(color, ${col}), color_name = COALESCE(color_name, ${colName}) WHERE id = ${r.id}`;
+      changed++;
+    }
     const res = resolve(r.title, r.year, r.power_ps, r.make ?? "BMW");
     if (!res) {
       if (r.segment !== null) { await sql`UPDATE listings SET family = NULL, generation = NULL, version = NULL, segment = NULL, model_conf = NULL WHERE id = ${r.id}`; changed++; }
@@ -86,7 +97,9 @@ function enrich(p: Parsed) {
   // indicateurs structurés prioritaires sur le texte pour accident / sans accident
   if (p.extraFlags.includes("accident_free") && !p.extraFlags.includes("accident")) flags = flags.filter((f) => f !== "accident");
   if (p.extraFlags.includes("accident") && !p.extraFlags.includes("accident_free")) flags = flags.filter((f) => f !== "accident_free");
-  return { res, options, flags };
+  let color = p.color, colorName = p.colorName;
+  if (!color) { [color, colorName] = colorFromText(`${p.title}\n${p.description}`); }
+  return { res, options, flags, color, colorName };
 }
 
 interface Counters { pages: number; seen: number; newCount: number; details: number; skipped: number }
@@ -100,7 +113,8 @@ async function saveItem(sql: Sql, p: Parsed, fx: number, c: Counters): Promise<v
   const ex = await sql`SELECT id, price FROM listings WHERE source = ${p.source} AND ext_id = ${p.extId}`;
   if (ex.length) {
     const changed = Math.abs(ex[0].price - p.price) > 0.5;
-    await sql`UPDATE listings SET last_seen = now(), active = true, removed_at = NULL, price = ${p.price}, price_eur = ${eur},
+    await sql`UPDATE listings SET last_seen = now(), active = true, removed_at = NULL, missed_scans = 0, price = ${p.price}, price_eur = ${eur},
+              color = COALESCE(color, ${e.color}), color_name = COALESCE(color_name, ${e.colorName}),
               km = COALESCE(${p.km}, km), url = ${p.url}, published_at = COALESCE(published_at, ${p.publishedAt}) WHERE id = ${ex[0].id}`;
     if (changed) await sql`INSERT INTO price_history(listing_id, price, price_eur) VALUES (${ex[0].id}, ${p.price}, ${eur})`;
     return;
@@ -108,10 +122,10 @@ async function saveItem(sql: Sql, p: Parsed, fx: number, c: Counters): Promise<v
   const r = e.res;
   const ins = await sql`
     INSERT INTO listings(source, ext_id, url, country, currency, title, description, price, price_eur, year, month, km, power_ps, make,
-      family, generation, version, segment, model_conf, options, flags, published_at, has_detail)
+      family, generation, version, segment, model_conf, options, flags, published_at, has_detail, color, color_name)
     VALUES (${p.source}, ${p.extId}, ${p.url}, ${p.country}, ${p.currency}, ${p.title}, ${p.description}, ${p.price}, ${eur}, ${p.year}, ${p.month},
       ${p.km}, ${p.powerPs}, ${p.make}, ${r.family}, ${r.generation}, ${r.version}, ${r.segment}, ${r.confidence},
-      ${JSON.stringify(e.options)}::jsonb, ${JSON.stringify(e.flags)}::jsonb, ${p.publishedAt}, false)
+      ${JSON.stringify(e.options)}::text::jsonb, ${JSON.stringify(e.flags)}::text::jsonb, ${p.publishedAt}, false, ${e.color}, ${e.colorName})
     ON CONFLICT (source, ext_id) DO NOTHING RETURNING id`;
   if (ins.length) {
     c.newCount++;
@@ -131,7 +145,11 @@ async function addCounters(sql: Sql, source: string, c: Counters, extra: { statu
 }
 
 // --------------------------------------------------------------------------- une page de résultats
-async function processTask(sql: Sql, src: Source, fetcher: Fetcher, fx: number,
+const QUICK_MAX_PAGES = 8;       // passage rapide : au plus 8 pages par recherche (les plus récentes)
+const FULL_EVERY_MS = 6.5 * 86400_000; // balayage complet environ une fois par semaine
+const PASS_GAP_MS = 30 * 60_000;       // un nouveau passage rapide n'est lancé que 30 min après la fin du précédent
+
+async function processTask(sql: Sql, src: Source, fetcher: Fetcher, fx: number, mode: "quick" | "full",
   t: { id: number; qkey: string; page: number }): Promise<Counters> {
   const c = zero();
   const url = src.pageUrl(t.qkey, t.page);
@@ -146,6 +164,16 @@ async function processTask(sql: Sql, src: Source, fetcher: Fetcher, fx: number,
     return c;
   }
   for (const it of res.items) await saveItem(sql, it, fx, c);
+
+  if (mode === "quick") {
+    // passage rapide : les annonces sont triées de la plus récente à la plus ancienne ; on s'arrête dès qu'une page n'apporte rien de nouveau
+    if (c.newCount > 0 && t.page - src.firstPage + 1 < QUICK_MAX_PAGES) {
+      await sql`INSERT INTO crawl_queue(day, source, qkey, page) VALUES (CURRENT_DATE, ${src.name}, ${t.qkey}, ${t.page + 1}) ON CONFLICT DO NOTHING`;
+    }
+    await sql`UPDATE crawl_queue SET status = 'done', note = ${c.newCount > 0 ? null : "rien de nouveau"}, updated_at = now() WHERE id = ${t.id}`;
+    await addCounters(sql, src.name, c);
+    return c;
+  }
 
   const pageSize = res.items.length;
   const cap = src.maxPages * (res.pages && res.total ? Math.ceil(res.total / res.pages) : pageSize);
@@ -190,8 +218,9 @@ async function processDetail(sql: Sql, src: Source, fetcher: Fetcher, fx: number
     const e = enrich(p);
     const prevFlags: string[] = r.flags ?? [];
     const flags = uniq([...e.flags, ...prevFlags.filter((f) => f === "accident" || f === "accident_free")]);
-    await sql`UPDATE listings SET description = ${p.description}, options = ${JSON.stringify(e.options)}::jsonb, flags = ${JSON.stringify(flags)}::jsonb,
-              published_at = COALESCE(${p.publishedAt}, published_at), power_ps = COALESCE(${p.powerPs}, power_ps), has_detail = true WHERE id = ${r.id}`;
+    await sql`UPDATE listings SET description = ${p.description}, options = ${JSON.stringify(e.options)}::text::jsonb, flags = ${JSON.stringify(flags)}::text::jsonb,
+              published_at = COALESCE(${p.publishedAt}, published_at), power_ps = COALESCE(${p.powerPs}, power_ps),
+              color = COALESCE(${e.color}, color), color_name = COALESCE(${e.colorName}, color_name), has_detail = true WHERE id = ${r.id}`;
     if (e.res) {
       await sql`UPDATE listings SET family = ${e.res.family}, generation = ${e.res.generation}, version = ${e.res.version},
                 segment = ${e.res.segment}, model_conf = ${e.res.confidence} WHERE id = ${r.id}`;
@@ -211,28 +240,35 @@ async function processDetail(sql: Sql, src: Source, fetcher: Fetcher, fx: number
   return true;
 }
 
-// --------------------------------------------------------------------------- fin de journée pour une source
+// --------------------------------------------------------------------------- fin d'un passage pour une source
 async function finalize(sql: Sql, src: Source, cfg: CollectConfig) {
-  const st = await sql`SELECT finalized_day::text AS d FROM source_state WHERE source = ${src.name}`;
-  const today = (await sql`SELECT CURRENT_DATE::text AS d`)[0].d;
-  if (st.length && st[0].d === today) return;
+  void cfg;
+  const st = await sql`SELECT pass_mode, pass_started_at, pass_done_at FROM source_state WHERE source = ${src.name}`;
+  if (!st.length || st[0].pass_done_at || !st[0].pass_started_at) return;
   const q = await sql`
     SELECT count(*) FILTER (WHERE status = 'pending') AS pending, count(*) FILTER (WHERE status = 'error') AS errors,
            count(*) FILTER (WHERE note = 'plafonnée') AS capped, count(*) AS total
     FROM crawl_queue WHERE day = CURRENT_DATE AND source = ${src.name}`;
   if (!q[0].total || q[0].pending > 0) return;
-  const run = await sql`SELECT seen FROM runs WHERE day = CURRENT_DATE AND source = ${src.name}`;
+  const mode: string = st[0].pass_mode ?? "full";
+  const started: string = st[0].pass_started_at;
+  const seen = (await sql`SELECT count(*)::int AS n FROM listings WHERE source = ${src.name} AND last_seen >= ${started}`)[0].n;
   let removed = 0, status = q[0].errors > 0 || q[0].capped > 0 ? "partial" : "ok", msg: string | null = null;
-  if (q[0].capped > 0) msg = "Certaines recherches dépassent le plafond de pages de la plateforme : retraits non évalués aujourd'hui.";
-  if (run.length && run[0].seen > 0 && q[0].errors === 0 && q[0].capped === 0) {
-    const gone = await sql`
-      UPDATE listings SET active = false, removed_at = now()
-      WHERE source = ${src.name} AND active AND last_seen < now() - make_interval(days => ${cfg.staleAfterDays}::int) RETURNING id`;
-    removed = gone.length;
-  } else if (run.length && run[0].seen === 0) { status = "empty"; msg = "Aucune annonce reconnue : la structure des pages a peut-être changé."; }
-  await sql`UPDATE runs SET removed = ${removed}, finished_at = now(), status = ${status}, error = COALESCE(${msg}, error) WHERE day = CURRENT_DATE AND source = ${src.name}`;
-  await sql`INSERT INTO source_state(source, finalized_day, last_status, updated_at) VALUES (${src.name}, CURRENT_DATE, ${status}, now())
-            ON CONFLICT (source) DO UPDATE SET finalized_day = CURRENT_DATE, last_status = ${status}, updated_at = now()`;
+  let fullOk = false;
+  if (mode === "full") {
+    if (q[0].capped > 0) msg = "Certaines recherches dépassent le plafond de pages de la plateforme : retraits non évalués pour ce balayage.";
+    if (seen === 0) { status = "empty"; msg = "Aucune annonce reconnue : la structure des pages a peut-être changé."; }
+    else if (q[0].errors === 0 && q[0].capped === 0) {
+      fullOk = true;
+      // une annonce absente de deux balayages complets consécutifs est considérée comme vendue (ou retirée)
+      await sql`UPDATE listings SET missed_scans = missed_scans + 1 WHERE source = ${src.name} AND active AND last_seen < ${started}`;
+      const gone = await sql`UPDATE listings SET active = false, removed_at = last_seen WHERE source = ${src.name} AND active AND missed_scans >= 2 RETURNING id`;
+      removed = gone.length;
+    }
+  }
+  await sql`UPDATE runs SET removed = removed + ${removed}, finished_at = now(), status = ${status}, error = COALESCE(${msg}, error) WHERE day = CURRENT_DATE AND source = ${src.name}`;
+  await sql`UPDATE source_state SET pass_done_at = now(), finalized_day = CURRENT_DATE, last_status = ${status}, updated_at = now(),
+            last_full_at = CASE WHEN ${fullOk} THEN now() ELSE last_full_at END WHERE source = ${src.name}`;
   await refreshStats(sql);
 }
 
@@ -280,20 +316,31 @@ export async function runCycle(sql: Sql, cfg: CollectConfig, budgetMs: number, o
 async function work(sql: Sql, src: Source, fetcher: Fetcher, fx: number, cfg: CollectConfig, deadline: number): Promise<string> {
   const stt = await sql`SELECT blocked_until FROM source_state WHERE source = ${src.name} AND blocked_until > now()`;
   if (stt.length) return `bloquée jusqu'à ${new Date(stt[0].blocked_until).toISOString()}`;
-  // plan du jour
-  const has = await sql`SELECT 1 FROM crawl_queue WHERE day = CURRENT_DATE AND source = ${src.name} LIMIT 1`;
-  if (!has.length) {
+  // plan du passage : rapide (annonces récentes) la plupart du temps, complet environ une fois par semaine
+  const stRows = await sql`SELECT last_full_at, pass_mode, pass_started_at, pass_done_at FROM source_state WHERE source = ${src.name}`;
+  const st = stRows[0] ?? null;
+  const qn = (await sql`SELECT count(*)::int AS total, count(*) FILTER (WHERE status = 'pending')::int AS pending FROM crawl_queue WHERE day = CURRENT_DATE AND source = ${src.name}`)[0];
+  const lastDone = st?.pass_done_at ? new Date(st.pass_done_at).getTime() : null;
+  let mode: "quick" | "full" = (st?.pass_mode as "quick" | "full") ?? "full";
+  if (!qn.total || (qn.pending === 0 && lastDone != null && Date.now() - lastDone > PASS_GAP_MS)) {
+    const lastFull = st?.last_full_at ? new Date(st.last_full_at).getTime() : 0;
+    mode = Date.now() - lastFull >= FULL_EVERY_MS ? "full" : "quick";
+    await sql`DELETE FROM crawl_queue WHERE day = CURRENT_DATE AND source = ${src.name}`;
     for (const q of src.baseQueries()) {
       await sql`INSERT INTO crawl_queue(day, source, qkey, page) VALUES (CURRENT_DATE, ${src.name}, ${q}, ${src.firstPage}) ON CONFLICT DO NOTHING`;
     }
-    await sql`INSERT INTO runs(day, source, status) VALUES (CURRENT_DATE, ${src.name}, 'running') ON CONFLICT (day, source) DO NOTHING`;
+    await sql`INSERT INTO runs(day, source, status) VALUES (CURRENT_DATE, ${src.name}, 'running') ON CONFLICT (day, source) DO UPDATE SET status = 'running', finished_at = NULL`;
+    await sql`INSERT INTO source_state(source, pass_mode, pass_started_at, pass_done_at, updated_at) VALUES (${src.name}, ${mode}, now(), NULL, now())
+              ON CONFLICT (source) DO UPDATE SET pass_mode = ${mode}, pass_started_at = now(), pass_done_at = NULL, updated_at = now()`;
+  } else if (st && !st.pass_mode) {
+    await sql`UPDATE source_state SET pass_mode = 'full', pass_started_at = COALESCE(pass_started_at, (SELECT started_at FROM runs WHERE day = CURRENT_DATE AND source = ${src.name})) WHERE source = ${src.name}`;
   }
   let did = 0;
   try {
     while (Date.now() < deadline - 25_000 && !(await stopRequested(sql))) {
       const t = await sql`SELECT id, qkey, page FROM crawl_queue WHERE day = CURRENT_DATE AND source = ${src.name} AND status = 'pending' ORDER BY id LIMIT 1`;
       if (t.length) {
-        try { await processTask(sql, src, fetcher, fx, { id: t[0].id, qkey: t[0].qkey, page: t[0].page }); did++; }
+        try { await processTask(sql, src, fetcher, fx, mode, { id: t[0].id, qkey: t[0].qkey, page: t[0].page }); did++; }
         catch (e) {
           if (e instanceof Blocked) throw e;
           if (e instanceof RobotsDisallowed) await sql`UPDATE crawl_queue SET status = 'skipped', note = 'robots.txt', updated_at = now() WHERE id = ${t[0].id}`;

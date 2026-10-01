@@ -85,6 +85,9 @@ function fillFamilySelects() {
   const chip = (o) => `<label class="chip"><input type="checkbox" value="${esc(o.key)}"><span>${esc(o.label)}</span></label>`;
   $("#f-options").innerHTML = CFG.options.filter((o) => o.kind === "option").map(chip).join("");
   $("#f-flags").innerHTML = CFG.options.filter((o) => o.kind === "cond").map(chip).join("");
+  $("#l-options").innerHTML = CFG.options.filter((o) => o.kind === "option").map(chip).join("");
+  $("#l-flags").innerHTML = CFG.options.filter((o) => o.kind === "cond").map(chip).join("");
+  $("#l-color").innerHTML = '<option value="">Toutes couleurs</option>' + (CFG.colors || []).map((c) => `<option>${esc(c)}</option>`).join("");
   onFamily();
 }
 function onFamily() {
@@ -192,19 +195,24 @@ $("#o-family").addEventListener("change", loadOptions);
 
 // ---------- annonces
 async function loadListings() {
-  const q = new URLSearchParams({ family: $("#l-family").value, market: $("#l-market").value, sort: $("#l-sort").value, q: $("#l-q").value, limit: 80 });
+  const q = new URLSearchParams({ family: $("#l-family").value, market: $("#l-market").value, sort: $("#l-sort").value, q: $("#l-q").value, limit: 80,
+    color: $("#l-color").value, year_min: $("#l-yearmin").value, km_max: $("#l-kmmax").value,
+    options: $$("#l-options input:checked").map((i) => i.value).join(","), flags: $$("#l-flags input:checked").map((i) => i.value).join(",") });
+  const nsel = $$("#l-options input:checked, #l-flags input:checked").length; $("#l-opt-n").textContent = nsel ? `(${nsel} sélectionnée${nsel > 1 ? "s" : ""})` : "";
   const r = await api("/api/listings?" + q);
   $("#l-count").textContent = `${r.total} annonces${r.total > 80 ? " (80 affichées)" : ""}. « Cote » = prix demandé attendu par le modèle ; un écart négatif = moins cher que prévu.`;
   $("#ltable tbody").innerHTML = r.items.map((i) => {
     const link = /^https?:\/\//.test(i.url || "") ? `<a href="${esc(i.url)}" target="_blank" rel="noopener noreferrer">${esc(i.title)}</a>` : esc(i.title);
     const opts = [...i.options.slice(0, 3), ...i.flags.slice(0, 2)].map((o) => `<span class="tag">${esc(labelOf(o))}</span>`).join("");
-    return `<tr><td>${link}<br><small class="muted">${esc(i.segment)} · ${esc(i.version)} · ${esc(i.country)}${i.model_conf < 0.7 ? " · modèle incertain" : ""}</small><div>${opts}</div></td>
+    return `<tr><td>${link}<br><small class="muted">${esc(i.segment)} · ${esc(i.version)} · ${esc(i.country)}${i.color ? " · " + esc(i.color) : ""}${i.model_conf < 0.7 ? " · modèle incertain" : ""}</small><div>${opts}</div></td>
       <td class="num">${i.year}</td><td class="num">${nf.format(i.km)}</td><td class="num">${money(i.price, i.currency.toLowerCase())}</td>
-      <td class="num">${money(i.expected_eur, "eur")}</td><td class="num ${i.gap_pct == null ? "" : i.gap_pct < 0 ? "good" : "bad"}">${i.gap_pct == null ? "—" : pct(i.gap_pct)}</td></tr>`;
+      <td class="num">${money(i.expected_eur, "eur")}</td><td class="num ${i.gap_pct == null ? "" : i.gap_pct < 0 ? "good" : "bad"}">${i.gap_pct == null ? "—" : pct(i.gap_pct)}${i.gap_pct != null && i.gap_pct <= -8 ? '<br><span class="tag deal">bonne affaire</span>' : ""}</td></tr>`;
   }).join("") || `<tr><td colspan="6" class="muted">Aucune annonce.</td></tr>`;
 }
 const labelOf = (k) => (CFG.options.find((o) => o.key === k) || { label: k }).label;
-["#l-family", "#l-market", "#l-sort"].forEach((s) => $(s).addEventListener("change", loadListings));
+["#l-family", "#l-market", "#l-sort", "#l-color"].forEach((s) => $(s).addEventListener("change", loadListings));
+["#l-yearmin", "#l-kmmax"].forEach((s) => $(s).addEventListener("input", () => { clearTimeout(lt); lt = setTimeout(loadListings, 500); }));
+$("#l-options").addEventListener("change", loadListings); $("#l-flags").addEventListener("change", loadListings);
 let lt; $("#l-q").addEventListener("input", () => { clearTimeout(lt); lt = setTimeout(loadListings, 350); });
 
 // ---------- suivi

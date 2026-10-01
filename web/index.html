@@ -94,7 +94,12 @@
         <select id="l-market"><option value="">CH + DE</option><option value="CH">Suisse</option><option value="DE">Allemagne</option></select>
         <select id="l-sort"><option value="gap">Meilleures affaires d'abord</option><option value="price">Prix</option><option value="recent">Plus récentes</option><option value="km">Kilométrage</option></select>
         <input id="l-q" placeholder="Rechercher (ex. Competition)">
+        <select id="l-color"><option value="">Toutes couleurs</option></select>
+        <input id="l-yearmin" type="number" min="2000" max="2035" placeholder="Année min">
+        <input id="l-kmmax" type="number" min="0" step="1000" placeholder="Km max">
       </div>
+      <details class="more"><summary>Options exigées <span id="l-opt-n" class="muted"></span></summary>
+        <div id="l-options" class="chips"></div><div id="l-flags" class="chips"></div></details>
       <div class="scroll"><table id="ltable"><thead><tr><th>Annonce</th><th class="num">Année</th><th class="num">Km</th>
         <th class="num">Prix</th><th class="num">Cote</th><th class="num">Écart</th></tr></thead><tbody></tbody></table></div>
       <p class="hint" id="l-count"></p>

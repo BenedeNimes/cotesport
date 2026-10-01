@@ -5,6 +5,7 @@ import { db, type Sql } from "./db";
 import { STATUS, isRunning, requestStop, reclassifyAll, refreshStats, runCycle, type CollectConfig } from "./collector";
 import { median } from "./linalg";
 import { catalogPublic } from "./options";
+import { COLOR_GROUPS } from "./colors";
 import { reference } from "./modelid";
 import { REGISTRY, DEFAULT_SOURCES } from "./sources";
 import { ValuationService, ageOf, DEFAULTS, type EstimateSpec, type Row } from "./valuation";
@@ -44,14 +45,14 @@ async function service(sql: Sql): Promise<ValuationService> {
   if (svc && key === svcKey) return svc;
   const raw = await sql`
     SELECT id, source, url, title, country, family, generation, version, segment, price, price_eur, currency, year, month, km, power_ps,
-           options, flags, first_seen, published_at, active, model_conf
+           options, flags, first_seen, published_at, active, model_conf, color, color_name
     FROM listings WHERE active AND segment IS NOT NULL AND price_eur > 0 AND year IS NOT NULL AND km IS NOT NULL`;
   const rows: Row[] = raw.map((r) => ({
     id: r.id, source: r.source, url: r.url, title: r.title ?? "", country: r.country, family: r.family, generation: r.generation,
     version: r.version ?? "", segment: r.segment, priceEur: r.price_eur, price: r.price, currency: r.currency, year: r.year, month: r.month,
     km: r.km, powerPs: r.power_ps, opts: new Set<string>(r.options ?? []), conds: new Set<string>(r.flags ?? []),
     firstSeen: r.first_seen ? new Date(r.first_seen) : null, publishedAt: r.published_at ? new Date(r.published_at) : null,
-    active: r.active, isDemo: false, modelConf: r.model_conf, age: ageOf(r.year, r.month) ?? 0, ch: r.country === "CH" ? 1 : 0,
+    active: r.active, isDemo: false, modelConf: r.model_conf, color: r.color, colorName: r.color_name, age: ageOf(r.year, r.month) ?? 0, ch: r.country === "CH" ? 1 : 0,
   }));
   const fx = (await sql`SELECT chf_eur FROM fx_rates ORDER BY day DESC LIMIT 1`)[0]?.chf_eur ?? null;
   // écart entre premier et dernier prix des annonces retirées (≥ 15 pour être publié)
@@ -116,7 +117,7 @@ export async function handle(req: Request): Promise<Response> {
       return json({
         auth_required: !!process.env.APP_TOKEN,
         families: Object.fromEntries(Object.entries(ref).map(([f, fd]) => [f, fd.generations.map((g) => ({ code: g.code, years: g.years, versions: g.versions }))])),
-        options: catalogPublic(),
+        options: catalogPublic(), colors: COLOR_GROUPS,
         sources: collectConfig().sources.map((n) => ({ name: n, label: REGISTRY[n].label, country: REGISTRY[n].country })),
       });
     }
@@ -148,7 +149,7 @@ export async function handle(req: Request): Promise<Response> {
     if (path === "/api/watch" && req.method === "POST") {
       const b = (await req.json().catch(() => null)) as { name?: string; spec?: unknown } | null;
       if (!b?.name || typeof b.spec !== "object" || !b.spec) return fail(400, "Paramètres invalides");
-      await sql`INSERT INTO watch(label, params) VALUES (${String(b.name).slice(0, 80)}, ${JSON.stringify(b.spec)}::jsonb)`;
+      await sql`INSERT INTO watch(label, params) VALUES (${String(b.name).slice(0, 80)}, ${JSON.stringify(b.spec)}::text::jsonb)`;
       return json({ ok: true });
     }
     m = path.match(/^\/api\/watch\/(\d+)$/);
@@ -217,12 +218,22 @@ async function listings(sql: Sql, url: URL) {
   if (generation) rows = rows.filter((r) => r.generation === generation);
   if (market) rows = rows.filter((r) => (r.country === "CH") === (market === "CH"));
   if (text) rows = rows.filter((r) => r.title.toLowerCase().includes(text));
+  const color = q.get("color") || "", wantOpts = (q.get("options") || "").split(",").filter(Boolean), wantFlags = (q.get("flags") || "").split(",").filter(Boolean);
+  const version = q.get("version") || "", yMin = Number(q.get("year_min") || 0), yMax = Number(q.get("year_max") || 0), kmMax = Number(q.get("km_max") || 0);
+  if (color) rows = rows.filter((r) => r.color === color);
+  if (version) rows = rows.filter((r) => r.version === version);
+  if (yMin) rows = rows.filter((r) => r.year >= yMin);
+  if (yMax) rows = rows.filter((r) => r.year <= yMax);
+  if (kmMax) rows = rows.filter((r) => r.km <= kmMax);
+  // toutes les options / tous les indicateurs cochés doivent être présents
+  if (wantOpts.length) rows = rows.filter((r) => wantOpts.every((k) => r.opts.has(k)));
+  if (wantFlags.length) rows = rows.filter((r) => wantFlags.every((k) => r.conds.has(k)));
   const scores = s.scoreListings(rows);
   const out = rows.map((r) => {
     const sc = scores.get(r.id);
     return {
       id: r.id, url: r.url, title: r.title, segment: r.segment, version: r.version, year: r.year, km: r.km, country: r.country, price: r.price,
-      currency: r.currency, price_eur: Math.round(r.priceEur), options: [...r.opts].sort(), flags: [...r.conds].sort(),
+      currency: r.currency, color: r.color ?? null, color_name: r.colorName ?? null, price_eur: Math.round(r.priceEur), options: [...r.opts].sort(), flags: [...r.conds].sort(),
       first_seen: r.firstSeen?.toISOString() ?? null, source: r.source, demo: false,
       expected_eur: sc?.expected_eur ?? null, gap_pct: sc?.gap_pct ?? null, model_conf: r.modelConf,
     };

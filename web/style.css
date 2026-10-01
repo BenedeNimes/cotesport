@@ -73,3 +73,4 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:16px 16px 28p
 a{color:var(--accent)}
 .tag{display:inline-block;background:var(--chip);border-radius:6px;padding:1px 6px;font-size:11px;margin:0 3px 0 0;color:var(--muted)}
 button.danger{background:#b3261e;color:#fff;border-color:#b3261e}
+.tag.deal{background:#1f7a45;color:#fff}details.more{margin:.5rem 0}details.more summary{cursor:pointer}

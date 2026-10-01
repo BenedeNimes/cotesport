@@ -1,4 +1,5 @@
 // AutoScout24.ch — les annonces sont dans la charge utile Next.js (`self.__next_f.push`) ; pagination `pagination[page]` (base 0).
+import { findColorDeep, normColor } from "../colors";
 import { htmlToText, newParsed, parseFirstReg, type Parsed } from "../normalize";
 import { type PageResult, type Source } from "./types";
 
@@ -63,6 +64,7 @@ export const as24ch: Source = {
           gearbox: String(l.transmissionTypeGroup ?? l.transmissionType ?? ""),
           publishedAt: l.createdDate ?? null,
         });
+        const cn = findColorDeep(l); if (cn) { it.colorName = cn; it.color = normColor(cn); }
         if (/manual/i.test(it.gearbox)) it.extraOptions.push("manual");
         if (l.hadAccident === true) it.extraFlags.push("accident");
         if (l.hadAccident === false) it.extraFlags.push("accident_free");

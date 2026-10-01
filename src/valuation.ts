@@ -15,7 +15,7 @@ export interface Row {
   id: number; source: string; url: string; title: string; country: string; family: string; generation: string; version: string;
   segment: string; priceEur: number; price: number; currency: string; year: number; month: number | null; km: number;
   powerPs: number | null; opts: Set<string>; conds: Set<string>; firstSeen: Date | null; publishedAt: Date | null;
-  active: boolean; isDemo: boolean; modelConf: number | null;
+  active: boolean; isDemo: boolean; modelConf: number | null; color?: string | null; colorName?: string | null;
   age: number; ch: 0 | 1; _t?: Date | null;
 }
 
