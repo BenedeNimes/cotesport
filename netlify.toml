@@ -1,0 +1,8 @@
+[build]
+  publish = "web"
+
+[[redirects]]
+  from = "/api/*"
+  to = "https://br-patient-night-b1iegx01-cotesport.compute.c-5.eu-central-1.aws.neon.tech/api/:splat"
+  status = 200
+  force = true
