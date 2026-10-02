@@ -2,7 +2,7 @@
 // descriptions des nouvelles annonces, annonces retirées. Chaque passage a un budget de temps ; la file reprend au passage suivant.
 import type { Sql } from "./db";
 import { Blocked, Fetcher, FetchError, RobotsDisallowed } from "./fetcher";
-import { newParsed, type Parsed } from "./normalize";
+import { addMarkers, newParsed, type Parsed } from "./normalize";
 import { extract } from "./options";
 import { resolve } from "./modelid";
 import { colorFromText } from "./colors";
@@ -35,16 +35,22 @@ export async function stopRequested(sql: Sql): Promise<boolean> {
 
 /** Réévalue le modèle de toutes les annonces avec les règles actuelles (corrige les erreurs de classement passées). */
 export async function reclassifyAll(sql: Sql): Promise<number> {
-  const rows = await sql`SELECT id, title, description, options, flags, color, year, power_ps, make, segment, version, model_conf FROM listings`;
+  const rows = await sql`SELECT id, source, has_detail, title, description, options, flags, color, year, power_ps, make, segment, version, model_conf FROM listings`;
   let changed = 0;
   for (const r of rows) {
-    // options / état / couleur relus avec le dictionnaire courant (on garde ce qui était déjà connu)
-    const [o, c] = extract(`${r.title}\n${r.description ?? ""}`);
+    // options / état / couleur relus avec le dictionnaire courant : la détection est entièrement refaite à partir du texte enregistré.
+    // Seules les informations issues de champs structurés, qui n'ont pas de trace dans le texte, sont conservées (et inscrites dans la description).
     const oldO: string[] = Array.isArray(r.options) ? r.options : [], oldF: string[] = Array.isArray(r.flags) ? r.flags : [];
-    const newO = uniq([...oldO, ...o]), newF = uniq([...oldF, ...c.filter((f) => !f.startsWith("_"))]);
-    const [col, colName] = r.color ? [null, null] : colorFromText(`${r.title}\n${r.description ?? ""}`);
-    if (newO.length !== oldO.length || newF.length !== oldF.length || col) {
-      await sql`UPDATE listings SET options = ${JSON.stringify(newO)}::text::jsonb, flags = ${JSON.stringify(newF)}::text::jsonb,
+    let desc: string = r.description ?? "";
+    const structured = [...oldO.filter((k) => ["manual", "xdrive", "winter_tires"].includes(k)), ...oldF.filter((k) => k === "accident" ||
+      (r.has_detail && r.source !== "autoscout24_de" && ["accident_free", "service_history", "first_owner", "warranty"].includes(k)))];
+    const withMarkers = addMarkers(desc, structured);
+    const [o, c] = extract(`${r.title}\n${withMarkers}`);
+    const newO = uniq(o), newF = uniq(c.filter((f) => !f.startsWith("_")));
+    const [col, colName] = r.color ? [null, null] : colorFromText(`${r.title}\n${withMarkers}`);
+    const same = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
+    if (!same(newO, oldO) || !same(newF, oldF) || col || withMarkers !== desc) {
+      await sql`UPDATE listings SET options = ${JSON.stringify(newO)}::text::jsonb, flags = ${JSON.stringify(newF)}::text::jsonb, description = ${withMarkers},
                 color = COALESCE(color, ${col}), color_name = COALESCE(color_name, ${colName}) WHERE id = ${r.id}`;
       changed++;
     }
@@ -90,6 +96,7 @@ const toEur = (price: number | null, cur: string, fx: number) => (price == null 
 const uniq = (a: string[]) => [...new Set(a)];
 
 function enrich(p: Parsed) {
+  p.description = addMarkers(p.description, [...p.extraOptions, ...p.extraFlags.filter((f) => !f.startsWith("_"))]);
   const res = resolve(p.title, p.year, p.powerPs, p.make);
   const [o, c] = extract(`${p.title}\n${p.description}`);
   const options = uniq([...o, ...p.extraOptions]);
@@ -233,7 +240,10 @@ async function processDetail(sql: Sql, src: Source, fetcher: Fetcher, fx: number
     if (err instanceof RobotsDisallowed) await sql`UPDATE listings SET has_detail = true WHERE id = ${r.id}`;
     else if (err instanceof FetchError && /HTTP (404|410)/.test(err.message)) {
       await sql`UPDATE listings SET has_detail = true, active = false, removed_at = now() WHERE id = ${r.id}`;
-    } else await sql`UPDATE listings SET has_detail = true WHERE id = ${r.id}`; // on n'insiste pas
+    } else {
+      await sql`UPDATE listings SET has_detail = true WHERE id = ${r.id}`; // on n'insiste pas
+      await addCounters(sql, src.name, c, { error: `Page d'annonce illisible (${r.ext_id}) : ${String((err as Error).message).slice(0, 160)}` });
+    }
   }
   await addCounters(sql, src.name, c);
   void fx;

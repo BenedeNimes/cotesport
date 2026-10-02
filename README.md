@@ -10,10 +10,10 @@ Suivi de la cote des véhicules sportifs (v1 : BMW M / M Performance) sur les ma
 - **Cote** : régression ridge sur ln(prix) (âge, km, pays, version, options, état), intervalle à 80 %, projection 12/24/36 mois (`src/valuation.ts`).
 
 ## Sources
-`as24de` (AutoScout24.de), `as24ch` (AutoScout24.ch, refuse actuellement les accès automatisés : la source s'arrête sans contournement) et `autolina` (Autolina.ch, source suisse effective : listes `/bmw/<modèle>` + détail `/auto/<slug>/<id>`, robots.txt respecté). À faire valider côté conditions d'utilisation avant usage régulier. mobile.de n'est **pas** activé (filtres non fiabilisés). Pour ajouter une plateforme ou un pays : créer `src/sources/<nom>.ts` (interface `Source` dans `types.ts`) et l'enregistrer dans `src/sources/index.ts`.
+`as24de` (AutoScout24.de), `as24ch` (AutoScout24.ch, refuse actuellement les accès automatisés : la source s'arrête sans contournement) et `as24fr` / `as24es` (AutoScout24.fr / .es, même plateforme que .de ; pages d'annonce autorisées par leur robots.txt, contrairement à .de où elles sont interdites : seules les données de liste sont lues) et `autolina` (Autolina.ch, source suisse effective : listes `/bmw/<modèle>` + détail `/auto/<slug>/<id>`, robots.txt respecté). À faire valider côté conditions d'utilisation avant usage régulier. mobile.de n'est **pas** activé (filtres non fiabilisés). Pour ajouter une plateforme ou un pays : créer `src/sources/<nom>.ts` (interface `Source` dans `types.ts`) et l'enregistrer dans `src/sources/index.ts`.
 
 ## Variables d'environnement
-`DATABASE_URL` (injectée par Neon), `APP_TOKEN` (jeton d'accès à l'API/à l'interface), `REQUEST_DELAY_S` (4), `RESPECT_ROBOTS` (true), `MAX_DETAILS_PER_DAY` (1200), `STALE_AFTER_DAYS` (3), `SOURCES` (`as24de,as24ch,autolina`).
+`DATABASE_URL` (injectée par Neon), `APP_TOKEN` (jeton d'accès à l'API/à l'interface), `REQUEST_DELAY_S` (4), `RESPECT_ROBOTS` (true), `MAX_DETAILS_PER_DAY` (1200), `STALE_AFTER_DAYS` (3), `SOURCES` (`as24de,autolina,as24fr,as24es`).
 
 ## Limites et précautions
 - Collecte polie : robots.txt respecté, délai ~4 s par site, arrêt de la source en cas de 403/429/503/451 ou de page anti-robot (aucun contournement).
@@ -27,3 +27,5 @@ Suivi de la cote des véhicules sportifs (v1 : BMW M / M Performance) sur les ma
 - Backend : `npm run release` régénère `bundle/index.mjs` ; mettre à jour `BUNDLE_SHA256` sur la fonction Neon après chaque release.
 - Les annonces accidentées / défectueuses / épaves sont détectées dans le texte (`isDamaged`, src/options.ts), exclues du calcul de la cote et masquées par défaut dans la liste (case à décocher). Un prix > 30 % sous la cote est signalé « à vérifier ».
 - Le suivi accepte des annonces (☆) : prix courant, historique, retrait de l'annonce.
+- Détection des options : dictionnaire multilingue (DE/FR/EN/ES/IT) + abréviations d'annonce reconnues seulement en majuscules et isolées (ACC, HK, H&K, AHK, GSD, HUD, PDC, RFK, DKG, LCI…), négations traitées (« ohne », « sans », « sin », « kein Unfall »…). Les champs structurés des sites sont convertis en mots-clés dans la description, de sorte que toute la détection est rejouable (`reclassifyAll`).
+- Pays : DE, CH, FR, ES (effet pays dans la cote, référence Allemagne).

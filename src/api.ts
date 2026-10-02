@@ -18,7 +18,7 @@ export const collectConfig = (): CollectConfig => ({
   staleAfterDays: Number(env("STALE_AFTER_DAYS", "3")),
   fxFallback: Number(env("FX_CHF_EUR", "1.07")),
   sources: (() => {
-    const alias: Record<string, string> = { as24de: "autoscout24_de", as24ch: "autoscout24_ch", autolina: "autolina_ch" };
+    const alias: Record<string, string> = { as24de: "autoscout24_de", as24ch: "autoscout24_ch", autolina: "autolina_ch", as24fr: "autoscout24_fr", as24es: "autoscout24_es" };
     const l = env("SOURCES", "").split(",").map((s) => s.trim()).map((s) => alias[s] ?? s).filter((s) => REGISTRY[s]);
     return l.length ? l : DEFAULT_SOURCES; // jamais de liste vide : on retombe sur toutes les sources connues
   })(),
@@ -53,7 +53,7 @@ async function service(sql: Sql): Promise<ValuationService> {
     km: r.km, powerPs: r.power_ps, opts: new Set<string>(r.options ?? []), conds: new Set<string>(r.flags ?? []),
     firstSeen: r.first_seen ? new Date(r.first_seen) : null, publishedAt: r.published_at ? new Date(r.published_at) : null,
     damaged: isDamaged(`${r.title ?? ""}\n${r.description ?? ""}`) || (r.flags ?? []).includes("damaged"),
-    active: r.active, isDemo: false, modelConf: r.model_conf, color: r.color, colorName: r.color_name, age: ageOf(r.year, r.month) ?? 0, ch: r.country === "CH" ? 1 : 0,
+    active: r.active, isDemo: false, modelConf: r.model_conf, color: r.color, colorName: r.color_name, age: ageOf(r.year, r.month) ?? 0, ch: r.country === "CH" ? 1 : 0, fr: r.country === "FR" ? 1 : 0, es: r.country === "ES" ? 1 : 0,
   }));
   const fx = (await sql`SELECT chf_eur FROM fx_rates ORDER BY day DESC LIMIT 1`)[0]?.chf_eur ?? null;
   // écart entre premier et dernier prix des annonces retirées (≥ 15 pour être publié)
@@ -203,23 +203,25 @@ async function summary(sql: Sql) {
   const s = await service(sql);
   const tot = (await sql`SELECT count(*) AS c, count(*) FILTER (WHERE active) AS a FROM listings`)[0];
   const last = (await sql`SELECT max(finished_at) AS m FROM runs WHERE status IN ('ok','partial')`)[0].m;
-  const seg = new Map<string, { family: string; generation: string; ch: number[]; de: number[]; km: number[]; age: number[] }>();
+  const seg = new Map<string, { family: string; generation: string; ch: number[]; de: number[]; fr: number[]; es: number[]; km: number[]; age: number[] }>();
   for (const r of s.rows) {
     if (r.damaged) continue;
-    const e = seg.get(r.segment) ?? seg.set(r.segment, { family: r.family, generation: r.generation, ch: [], de: [], km: [], age: [] }).get(r.segment)!;
-    (r.country === "CH" ? e.ch : e.de).push(r.priceEur); e.km.push(r.km); e.age.push(r.age);
+    const e = seg.get(r.segment) ?? seg.set(r.segment, { family: r.family, generation: r.generation, ch: [], de: [], fr: [], es: [], km: [], age: [] }).get(r.segment)!;
+    (r.country === "CH" ? e.ch : r.country === "FR" ? e.fr : r.country === "ES" ? e.es : e.de).push(r.priceEur); e.km.push(r.km); e.age.push(r.age);
   }
   const hist = await sql`SELECT segment, day, median_eur FROM segment_stats WHERE country = 'ALL' ORDER BY day`;
   const byseg = new Map<string, Array<[string, number]>>();
   for (const h of hist) (byseg.get(h.segment) ?? byseg.set(h.segment, []).get(h.segment)!).push([h.day, h.median_eur]);
   const r0 = (v: number) => Math.round(v), r1 = (v: number) => Math.round(v * 10) / 10;
   const out = [...seg.entries()].map(([segment, e]) => {
-    const all = [...e.ch, ...e.de];
+    const all = [...e.ch, ...e.de, ...e.fr, ...e.es];
+    const prem = (a: number[]) => (a.length >= 5 && e.de.length >= 5 ? r1((median(a) / median(e.de) - 1) * 100) : null);
     const h = byseg.get(segment) ?? [];
     let trend: number | null = null, since: string | undefined;
     if (h.length >= 2 && h[0][0] !== h[h.length - 1][0]) { trend = r1((h[h.length - 1][1] / h[0][1] - 1) * 100); since = h[0][0]; }
     return {
-      segment, family: e.family, generation: e.generation, n: all.length, n_ch: e.ch.length, n_de: e.de.length,
+      segment, family: e.family, generation: e.generation, n: all.length, n_ch: e.ch.length, n_de: e.de.length, n_fr: e.fr.length, n_es: e.es.length,
+      median_fr_eur: e.fr.length ? r0(median(e.fr)) : null, median_es_eur: e.es.length ? r0(median(e.es)) : null, fr_premium_pct: prem(e.fr), es_premium_pct: prem(e.es),
       median_eur: r0(median(all)), median_ch_eur: e.ch.length ? r0(median(e.ch)) : null, median_de_eur: e.de.length ? r0(median(e.de)) : null,
       median_km: r0(median(e.km)), median_age: r1(median(e.age)),
       ch_premium_pct: e.ch.length >= 5 && e.de.length >= 5 ? r1((median(e.ch) / median(e.de) - 1) * 100) : null,
@@ -233,33 +235,39 @@ async function listings(sql: Sql, url: URL) {
   const s = await service(sql);
   const q = url.searchParams;
   const family = q.get("family") || "", generation = q.get("generation") || "", market = (q.get("market") || "").toUpperCase(), text = (q.get("q") || "").toLowerCase();
-  const sort = ["gap", "price", "recent", "km"].includes(q.get("sort") ?? "") ? q.get("sort")! : "gap";
-  const limit = Math.min(Math.max(Number(q.get("limit") ?? 60) || 60, 1), 300);
+  const sort = ["gap", "price", "recent", "km", "year"].includes(q.get("sort") ?? "") ? q.get("sort")! : "gap";
+  const limit = Math.min(Math.max(Number(q.get("limit") ?? 40) || 40, 1), 300), offset = Math.max(Number(q.get("offset") ?? 0) || 0, 0);
   let rows = s.rows;
   if (family) rows = rows.filter((r) => r.family === family);
   if (generation) rows = rows.filter((r) => r.generation === generation);
-  if (market) rows = rows.filter((r) => (r.country === "CH") === (market === "CH"));
-  if (text) rows = rows.filter((r) => r.title.toLowerCase().includes(text));
+  if (text) { const words = text.split(/\s+/).filter(Boolean); rows = rows.filter((r) => words.every((w) => r.title.toLowerCase().includes(w))); }
   const color = q.get("color") || "", wantOpts = (q.get("options") || "").split(",").filter(Boolean), wantFlags = (q.get("flags") || "").split(",").filter(Boolean);
-  const version = q.get("version") || "", yMin = Number(q.get("year_min") || 0), yMax = Number(q.get("year_max") || 0), kmMax = Number(q.get("km_max") || 0);
-  if (color) rows = rows.filter((r) => r.color === color);
+  const version = q.get("version") || "", yMin = Number(q.get("year_min") || 0), yMax = Number(q.get("year_max") || 0), kmMax = Number(q.get("km_max") || 0), priceMax = Number(q.get("price_max") || 0);
   if (version) rows = rows.filter((r) => r.version === version);
   if (yMin) rows = rows.filter((r) => r.year >= yMin);
   if (yMax) rows = rows.filter((r) => r.year <= yMax);
   if (kmMax) rows = rows.filter((r) => r.km <= kmMax);
+  if (priceMax) rows = rows.filter((r) => r.priceEur <= priceMax);
   // toutes les options / tous les indicateurs cochés doivent être présents
   if (wantOpts.length) rows = rows.filter((r) => wantOpts.every((k) => r.opts.has(k)));
   if (wantFlags.length) rows = rows.filter((r) => wantFlags.every((k) => r.conds.has(k)));
   // carrosserie « classique » = ni Touring, ni Cabriolet, ni Gran Coupé
   if (q.get("body") === "standard") rows = rows.filter((r) => !r.opts.has("body_touring") && !r.opts.has("body_convertible") && !r.opts.has("body_gran_coupe"));
   // par défaut on masque épaves / défectueux / accidentés ; hide_damaged=0 les réaffiche
-  const hideDamaged = q.get("hide_damaged") !== "0";
-  if (hideDamaged) rows = rows.filter((r) => !r.damaged && !r.conds.has("accident"));
+  if (q.get("hide_damaged") !== "0") rows = rows.filter((r) => !r.damaged && !r.conds.has("accident"));
+  // décomptes pour les filtres (avant d'appliquer le pays et la couleur, pour que les puces restent cohérentes)
+  const facets = { markets: {} as Record<string, number>, colors: {} as Record<string, number> };
+  for (const r of rows) {
+    if (!color || r.color === color) facets.markets[r.country] = (facets.markets[r.country] ?? 0) + 1;
+    if (!market || r.country === market) { const c = r.color ?? "?"; facets.colors[c] = (facets.colors[c] ?? 0) + 1; }
+  }
+  if (market) rows = rows.filter((r) => r.country === market);
+  if (color) rows = rows.filter((r) => r.color === color);
   const scores = s.scoreListings(rows);
   const out = rows.map((r) => {
     const sc = scores.get(r.id);
     return {
-      id: r.id, url: r.url, title: r.title, segment: r.segment, version: r.version, year: r.year, km: r.km, country: r.country, price: r.price,
+      id: r.id, url: r.url, title: r.title, segment: r.segment, version: r.version, year: r.year, month: r.month, km: r.km, power_ps: r.powerPs, country: r.country, price: r.price,
       currency: r.currency, color: r.color ?? null, color_name: r.colorName ?? null, price_eur: Math.round(r.priceEur), options: [...r.opts].sort(), flags: [...r.conds].sort(),
       first_seen: r.firstSeen?.toISOString() ?? null, source: r.source, demo: false,
       expected_eur: sc?.expected_eur ?? null, gap_pct: sc?.gap_pct ?? null, model_conf: r.modelConf,
@@ -274,9 +282,12 @@ async function listings(sql: Sql, url: URL) {
     price: (a, b) => a.price_eur - b.price_eur,
     recent: (a, b) => String(b.first_seen ?? "").localeCompare(String(a.first_seen ?? "")),
     km: (a, b) => (a.km ?? 0) - (b.km ?? 0),
+    year: (a, b) => b.year - a.year || (b.month ?? 0) - (a.month ?? 0),
   };
   out.sort(keyf[sort]);
-  return { total: out.length, items: out.slice(0, limit) };
+  const deals = q.get("deals") === "1";
+  const list = deals ? out.filter((i) => i.gap_pct != null && i.gap_pct <= -8 && !i.suspect && !i.damaged && !i.accident) : out;
+  return { total: list.length, offset, facets, items: list.slice(offset, offset + limit) };
 }
 
 async function health(sql: Sql) {

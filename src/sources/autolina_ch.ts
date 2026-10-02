@@ -2,6 +2,7 @@
 // Pages de liste /bmw/<modèle>[/page/N] : 15 annonces, rendu serveur ; détail /auto/<slug>/<id>.
 // robots.txt : ces chemins sont autorisés (seuls /auto/d/, /member… sont interdits).
 import { htmlToText, newParsed, parseKm, parsePrice, parsePower, parseFirstReg, type Parsed } from "../normalize";
+import { normColor } from "../colors";
 import { type PageResult, type Source } from "./types";
 
 const ORIGIN = "https://www.autolina.ch";
@@ -61,7 +62,9 @@ export const autolinaCh: Source = {
   },
   parseDetail(html, item) {
     const body = html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ");
-    const text = clean(body);
+    // une ligne par élément du DOM : les équipements restent séparés (pas de mots collés d'un équipement à l'autre)
+    const text = htmlToText(body);
+    const flat = text.replace(/\s+/g, " ");
     const h2 = body.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
     const headline = h2 ? clean(h2[1]) : "";
     // équipements optionnels (hors « Serienmässige Ausstattung », qui est l'équipement de série)
@@ -71,17 +74,20 @@ export const autolinaCh: Source = {
       const rest = text.slice(o + "Optionale Ausstattung".length);
       const e = rest.search(/Mehr anzeigen|Serienmässige Ausstattung/);
       const seen = new Set<string>();
-      opts = (e >= 0 ? rest.slice(0, e) : rest.slice(0, 3000))
-        .split(/\s(?=[A-ZÄÖÜ][\wäöüÄÖÜ\/ ]{1,20}:\s)/).map((s) => s.trim()).filter((s) => s && !seen.has(s) && seen.add(s)).join("; ");
+      opts = (e >= 0 ? rest.slice(0, e) : rest.slice(0, 3000)).split("\n").map((l) => l.replace(/\s+/g, " ").trim()).filter((l) => l && !seen.has(l) && seen.add(l)).join("; ");
     }
-    const er = text.match(/Erstzulassung\s+(\d{1,2})\s*\.\s*((?:19|20)\d{2})/);
+    const er = flat.match(/Erstzulassung\s+(\d{1,2})\s*\.\s*((?:19|20)\d{2})/);
     if (er) { item.month = Number(er[1]); item.year = Number(er[2]); } else {
-      const [y, m] = parseFirstReg(text.match(/Erstzulassung\s+([\d. /]+)/)?.[1]); if (y) { item.year = y; item.month = m; }
+      const [y, m] = parseFirstReg(flat.match(/Erstzulassung\s+([\d. /]+)/)?.[1]); if (y) { item.year = y; item.month = m; }
     }
-    if (/Antrieb\s+Allrad/i.test(text)) item.extraOptions.push("xdrive");
-    const g = text.match(/\bGarantie\s+(Ja|Nein)\b/);
+    if (/Antrieb\s+Allrad/i.test(flat)) item.extraOptions.push("xdrive");
+    if (/Getriebeart\s+(Schalt|Hand|Manuell)/i.test(flat)) item.extraOptions.push("manual");
+    const g = flat.match(/\bGarantie\s+(Ja|Nein)\b/);
     if (g && g[1] === "Ja") item.extraFlags.push("warranty");
-    if (/Der Händler meldet sich/.test(text)) item.extraFlags.push("_dealer");
+    if (/Der Händler meldet sich/.test(flat)) item.extraFlags.push("_dealer");
+    // couleur de carrosserie : « Farbe (aussen & innen) Grün Weiss » → premier mot = extérieur
+    const col = flat.match(/Farbe \(aussen (?:&amp;|&) innen\)\s+([A-Za-zÀ-ÿ]+)/);
+    if (col) { const c = normColor(col[1]); if (c) { item.color = c; item.colorName = col[1]; } }
     const parts = [headline, opts ? "Ausstattung: " + opts : ""].filter(Boolean);
     if (parts.length) item.description = [item.description, ...parts].filter(Boolean).join("\n").slice(0, 12000);
   },

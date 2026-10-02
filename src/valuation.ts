@@ -18,7 +18,7 @@ export interface Row {
   segment: string; priceEur: number; price: number; currency: string; year: number; month: number | null; km: number;
   powerPs: number | null; opts: Set<string>; conds: Set<string>; firstSeen: Date | null; publishedAt: Date | null;
   active: boolean; isDemo: boolean; modelConf: number | null; color?: string | null; colorName?: string | null;
-  age: number; ch: 0 | 1; _t?: Date | null;
+  age: number; ch: 0 | 1; fr?: 0 | 1; es?: 0 | 1; _t?: Date | null;
   /** épave / défectueux / accidenté grave (détecté dans le texte) : exclu de la cote */
   damaged?: boolean;
 }
@@ -46,6 +46,8 @@ function rowX(row: Partial<Row> & { age: number; km: number; ch: number; opts: S
     if (c === "age") return row.age || 0;
     if (c === "km") return (row.km || 0) / 10000;
     if (c === "ch") return row.ch;
+    if (c === "fr") return (row as any).fr ?? 0;
+    if (c === "es") return (row as any).es ?? 0;
     if (c === "t") return monthsSince(t0, row._t ?? row.firstSeen ?? null);
     const [k, v] = [c.slice(0, c.indexOf(":")), c.slice(c.indexOf(":") + 1)];
     if (k === "ver") return row.version === v ? 1 : 0;
@@ -65,8 +67,11 @@ export function fitModel(rows: Row[], o: { withGeneration: boolean; minSupport?:
   let cols = ["const", "age", "km"];
   if (std(ages) < 0.3) cols = cols.filter((c) => c !== "age");
   if (std(kms) < 500) cols = cols.filter((c) => c !== "km");
-  const chn = rows.reduce((s, r) => s + r.ch, 0);
-  if (chn >= 3 && chn <= n - 3) cols.push("ch");
+  // effet du pays de l'annonce (référence : Allemagne)
+  for (const c of ["ch", "fr", "es"] as const) {
+    const cn = rows.reduce((s, r) => s + ((r as any)[c] ?? 0), 0);
+    if (cn >= 3 && cn <= n - 3) cols.push(c);
+  }
   if (o.withGeneration) {
     const gcount = new Map<string, number>();
     for (const r of rows) gcount.set(r.generation, (gcount.get(r.generation) ?? 0) + 1);
@@ -201,7 +206,7 @@ export class ValuationService {
     const market = (spec.market || "DE").toUpperCase();
     const age = ageOf(Number(spec.year), spec.month ?? null) ?? 0;
     const km = Number(spec.km);
-    const row = { age, km, ch: market === "CH" ? 1 : 0, version: spec.version || "", generation: gen, opts: new Set(spec.options ?? []), conds: new Set(spec.flags ?? []), _t: new Date() } as any;
+    const row = { age, km, ch: market === "CH" ? 1 : 0, fr: market === "FR" ? 1 : 0, es: market === "ES" ? 1 : 0, version: spec.version || "", generation: gen, opts: new Set(spec.options ?? []), conds: new Set(spec.flags ?? []), _t: new Date() } as any;
     const segN = this.segmentRows(segment).length;
     let method: string | null = null, fit: Fit | null = this.segFit(segment);
     if (fit) method = "regression_segment";
@@ -257,6 +262,9 @@ export class ValuationService {
     if (ia >= 0) out.push({ label: "Par année d'âge supplémentaire", pct: pctOf(fit.beta[ia]) });
     if (ik >= 0) out.push({ label: "Par tranche de 10 000 km", pct: pctOf(fit.beta[ik]) });
     if (ic >= 0) out.push({ label: "Marché suisse vs allemand (à équipement égal)", pct: pctOf(fit.beta[ic]) });
+    for (const [c, lab] of [["fr", "Marché français vs allemand (à équipement égal)"], ["es", "Marché espagnol vs allemand (à équipement égal)"]] as const) {
+      const j = idx(fit, c); if (j >= 0) out.push({ label: lab, pct: pctOf(fit.beta[j]) });
+    }
     for (const [kind, keys] of [["opt", row.opts], ["cond", row.conds]] as const) {
       for (const key of keys as Set<string>) {
         const i = idx(fit, `${kind}:${key}`);
@@ -374,7 +382,7 @@ export class ValuationService {
     const res: { family: string; generation: string | null; n: number; items: any[]; note: string } = { family, generation: generation ?? null, n: rows.length, items: [], note: "" };
     const fit = generation ? (this.segFit(segment) ?? this.famFit(family)) : this.famFit(family);
     if (!fit) { res.note = `Pas assez d'annonces pour ${scope} (minimum ${this.s.minSegmentN}).`; return res; }
-    const chRows = rows.filter((r) => r.country === "CH"), deRows = rows.filter((r) => r.country !== "CH");
+    const chRows = rows.filter((r) => r.country === "CH"), deRows = rows.filter((r) => r.country === "DE");
     const fitCh = chRows.length >= 40 ? fitModel(chRows, { withGeneration: !generation, minSupport: 5 }) : null;
     const fitDe = deRows.length >= 40 && chRows.length >= 40 ? fitModel(deRows, { withGeneration: !generation, minSupport: 5 }) : null;
     const days = this.daysOnMarket(family);

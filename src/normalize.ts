@@ -89,3 +89,21 @@ export function htmlToText(html: string): string {
     .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#x27;/g, "'")
     .replace(/[ \t ]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
 }
+
+/**
+ * Les informations lues dans des champs structurés (boîte manuelle, historique, garantie…) sont ajoutées à la description sous forme de mots-clés :
+ * la détection ne dépend ainsi que du texte enregistré et reste reproductible (relecture avec un dictionnaire amélioré).
+ */
+export const STRUCT_MARKERS: Record<string, string> = {
+  manual: "Schaltgetriebe", xdrive: "xDrive", winter_tires: "Winterräder", accident: "Unfallschaden", damaged: "Unfallfahrzeug",
+  accident_free: "unfallfrei", service_history: "Scheckheftgepflegt", first_owner: "Erstbesitz", warranty: "Garantie",
+};
+export function addMarkers(description: string, keys: string[]): string {
+  let d = description ?? "";
+  const add: string[] = [];
+  for (const k of new Set(keys)) {
+    const m = STRUCT_MARKERS[k];
+    if (m && !d.toLowerCase().includes(m.toLowerCase())) add.push(m);
+  }
+  return add.length ? (d ? d + "\n" : "") + "Champs structurés : " + add.join(", ") : d;
+}

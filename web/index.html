@@ -12,16 +12,21 @@
 </head>
 <body>
 <header class="top">
-  <div class="brand"><svg class="logo-mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M8 52 L20 18 L30 18 L18 52Z" fill="#ffb703"/><path d="M22 52 L34 18 L44 18 L32 52Z" fill="#fb5607"/><path d="M36 52 L48 18 L58 18 L46 52Z" fill="#e63946"/></svg><span class="brand-name">CoteSport</span> <small id="fxline"></small></div>
+  <div class="brand"><svg class="logo-mark" viewBox="0 0 64 64" aria-hidden="true"><g><path d="M6 14 H54 L46 24 H6Z" fill="#81c4ff"/><path d="M6 28 H46 L38 38 H6Z" fill="#0653b6"/><path d="M6 42 H38 L30 52 H6Z" fill="#e7222e"/></g></svg><span class="brand-name">CoteSport</span> <small id="fxline"></small></div>
   <nav id="tabs">
-    <button data-tab="market" class="on">Marché</button>
-    <button data-tab="estimate">Estimer</button>
-    <button data-tab="options">Options</button>
-    <button data-tab="listings">Annonces</button>
-    <button data-tab="leasing">Crédit / leasing</button>
-    <button data-tab="import">Import DE ↔ CH</button>
-    <button data-tab="watch">Suivi</button>
-    <button data-tab="sources">Sources</button>
+    <div class="tabs-main">
+      <button data-tab="market" class="on">Marché</button>
+      <button data-tab="estimate">Estimer</button>
+      <button data-tab="options">Options</button>
+      <button data-tab="listings">Annonces</button>
+      <button data-tab="watch">Suivi</button>
+      <button data-tab="sources">Sources</button>
+    </div>
+    <div class="tabs-tools" role="group" aria-label="Outils d'achat">
+      <span class="tools-label">Outils d'achat</span>
+      <button data-tab="leasing">Crédit / leasing</button>
+      <button data-tab="import">Import DE ↔ CH</button>
+    </div>
   </nav>
 </header>
 
@@ -37,11 +42,7 @@
         <label class="inline">Marché
           <select id="mk-currency"><option value="eur">EUR</option><option value="chf">CHF</option></select></label></div>
       </div>
-      <div class="scroll"><table id="segtable"><thead><tr>
-        <th data-sort="segment">Segment</th><th data-sort="n" class="num">Annonces</th><th data-sort="median_age" class="num">Âge méd.</th>
-        <th data-sort="median_km" class="num">Km méd.</th><th data-sort="median_de_eur" class="num">Médiane DE</th>
-        <th data-sort="median_ch_eur" class="num col-ch">Médiane CH</th><th data-sort="ch_premium_pct" class="num col-ch">CH vs DE</th>
-        <th data-sort="trend_pct" class="num">Tendance</th></tr></thead><tbody></tbody></table></div>
+      <div class="scroll"><table id="segtable"><thead></thead><tbody></tbody></table></div>
       <p class="hint">Prix demandés (pas de transactions). La tendance n'apparaît qu'après plusieurs jours de collecte.</p>
     </div>
   </section>
@@ -57,7 +58,7 @@
         </div>
         <div class="row">
           <label>Version<select id="f-version"></select></label>
-          <label>Marché de vente<select id="f-market"><option value="CH">Suisse</option><option value="DE">Allemagne</option></select></label>
+          <label>Marché de vente<select id="f-market"></select></label>
         </div>
         <div class="row">
           <label>Année de mise en circulation<input type="number" id="f-year" min="2000" max="2035" value="2022"></label>
@@ -92,24 +93,36 @@
 
   <!-- ANNONCES -->
   <section id="tab-listings" class="tab">
-    <div class="panel">
-      <div class="panel-h"><h2>Annonces</h2></div>
-      <div class="filters">
-        <select id="l-family"><option value="">Tous les modèles</option></select>
-        <select id="l-market"><option value="">CH + DE</option><option value="CH">Suisse</option><option value="DE">Allemagne</option></select>
-        <select id="l-sort"><option value="gap">Meilleures affaires d'abord</option><option value="price">Prix</option><option value="recent">Plus récentes</option><option value="km">Kilométrage</option></select>
-        <select id="l-body" hidden><option value="">Toutes carrosseries</option></select>
-        <input id="l-q" placeholder="Rechercher (ex. Competition)">
-        <select id="l-color"><option value="">Toutes couleurs</option></select>
-        <input id="l-yearmin" type="number" min="2000" max="2035" placeholder="Année min">
-        <input id="l-kmmax" type="number" min="0" step="1000" placeholder="Km max">
+    <div class="lst-layout">
+      <aside class="lst-filters" id="lst-filters">
+        <div class="lf-head"><b>Filtres</b><button type="button" class="ghost mini-reset" id="l-reset">Réinitialiser</button></div>
+        <label class="lf-search"><input id="l-q" type="search" placeholder="Rechercher : Competition, Touring, CS…"></label>
+        <div class="lf-group" id="lg-market"><div class="lf-title">Pays</div><div class="seg" id="l-market"></div></div>
+        <div class="lf-group"><div class="lf-title">Modèle</div>
+          <select id="l-family"><option value="">Tous les modèles</option></select>
+          <select id="l-gen" hidden><option value="">Toutes générations</option></select>
+          <select id="l-body" hidden><option value="">Toutes carrosseries</option></select></div>
+        <div class="lf-group"><div class="lf-title">Année</div><div class="pair"><input id="l-yearmin" type="number" min="2000" max="2035" placeholder="de"><input id="l-yearmax" type="number" min="2000" max="2035" placeholder="à"></div></div>
+        <div class="lf-group"><div class="lf-title">Kilométrage max</div><input id="l-kmmax" type="number" min="0" step="5000" placeholder="ex. 50 000"></div>
+        <div class="lf-group"><div class="lf-title">Prix max (€)</div><input id="l-pricemax" type="number" min="0" step="5000" placeholder="ex. 90 000"></div>
+        <div class="lf-group" id="lg-color"><div class="lf-title">Couleur</div><div class="swatches" id="l-colors"></div></div>
+        <details class="lf-group" open><summary class="lf-title">Équipements</summary><div id="l-options" class="chips"></div><div id="l-bodies" class="chips"></div></details>
+        <details class="lf-group"><summary class="lf-title">État et historique</summary><div id="l-flags" class="chips"></div></details>
+        <label class="switch"><input type="checkbox" id="l-hide-damaged" checked><span>Masquer accidentés, défectueux et épaves</span></label>
+        <label class="switch"><input type="checkbox" id="l-deals"><span>Bonnes affaires uniquement</span></label>
+      </aside>
+      <div class="lst-main">
+        <div class="lst-bar">
+          <div id="l-count" class="lst-count"></div>
+          <label class="inline">Trier par
+            <select id="l-sort"><option value="gap">Meilleures affaires</option><option value="price">Prix croissant</option><option value="recent">Plus récentes</option><option value="year">Année</option><option value="km">Kilométrage</option></select></label>
+          <button type="button" class="ghost lf-toggle" id="l-toggle">Filtres</button>
+        </div>
+        <div id="l-active" class="active-chips"></div>
+        <div id="l-cards" class="cards-list"></div>
+        <div class="lst-more"><button type="button" class="primary" id="l-more" hidden>Voir plus d'annonces</button></div>
+        <p class="hint">« Cote » = prix demandé attendu par le modèle pour ce véhicule ; l'écart négatif signifie moins cher que prévu. Prix demandés, pas des prix de vente.</p>
       </div>
-      <label class="switch"><input type="checkbox" id="l-hide-damaged" checked><span>Masquer les véhicules accidentés, défectueux ou épaves</span></label>
-      <details class="more"><summary>Options exigées <span id="l-opt-n" class="muted"></span></summary>
-        <div id="l-options" class="chips"></div><div id="l-bodies" class="chips"></div><div id="l-flags" class="chips"></div></details>
-      <div class="scroll"><table id="ltable"><thead><tr><th>Annonce</th><th class="num">Année</th><th class="num">Km</th>
-        <th class="num">Prix</th><th class="num">Cote</th><th class="num">Écart</th><th class="rail-h">Actions</th></tr></thead><tbody></tbody></table></div>
-      <p class="hint" id="l-count"></p>
     </div>
   </section>
 

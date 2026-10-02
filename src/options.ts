@@ -5,7 +5,14 @@
  * sign : effet attendu sur le prix (1 = hausse, -1 = baisse, 0 = indéterminé). Un effet mesuré de signe contraire est rejeté (voir valuation.ts).
  * minYear : première année de disponibilité de l'équipement ; il n'est pas proposé pour une génération qui s'arrête avant.
  */
-export interface OptDef { label: string; kind: "option" | "body" | "cond"; patterns: string[]; sign?: 1 | -1 | 0; minYear?: number }
+export interface OptDef {
+  label: string; kind: "option" | "body" | "cond";
+  /** expressions insensibles à la casse (DE / FR / EN / ES / IT) */
+  patterns: string[];
+  /** abréviations d'annonce, reconnues seulement en MAJUSCULES et isolées (ACC, HK, AHK…) : évite les faux positifs (« acc » dans « accord ») */
+  abbr?: string[];
+  sign?: 1 | -1 | 0; minYear?: number;
+}
 
 export const CATALOG: Record<string, OptDef> = {
   carbon_roof: { label: "Toit carbone", kind: "option", patterns: ["carbon[- ]?dach", "toit (en )?carbone", "carbon roof", "carbon[- ]?roof"] },
@@ -18,7 +25,7 @@ export const CATALOG: Record<string, OptDef> = {
   m_diff: { label: "Différentiel M / autobloquant", kind: "option", patterns: ["m differential", "m differenzial", "sperrdifferential", "autobloquant"] },
   sport_exhaust: { label: "Échappement sport M", kind: "option", patterns: ["m sportabgas", "sportabgas", "[ée]chappement sport", "sport exhaust", "klappenauspuff"] },
   head_up: { label: "Affichage tête haute", kind: "option", patterns: ["head[- ]?up", "\\bhud\\b", "t[êe]te haute"] },
-  harman: { label: "Harman Kardon", kind: "option", patterns: ["harman[ /-]?kardon", "\\bh&k\\b", "\\bhk\\b"] },
+  harman: { label: "Harman Kardon", kind: "option", patterns: ["harman[ /-]?kardon", "harman ?kard"] },
   bowers: { label: "Bowers & Wilkins", kind: "option", patterns: ["bowers ?(&|and|und)? ?wilkins", "\\bb&w\\b"] },
   laser: { label: "Phares laser", kind: "option", patterns: ["laser ?licht", "laser ?light", "phares? laser"] },
   driving_assist_pro: { label: "Driving Assistant Professional", kind: "option", patterns: ["driving assistant (pro|plus)", "fahrassistent (pro|plus)", "assistant de conduite pro"] },
@@ -45,7 +52,7 @@ export const CATALOG: Record<string, OptDef> = {
   surround_view: { label: "Caméra 360° / Surround View", kind: "option", patterns: ["surround[- ]?view", "top[- ]?view", "360 ?(°|grad)", "rundum(sicht)?[- ]?kamera", "cam[ée]ra 360", "kamera 360"] },
   parking_assistant: { label: "Assistant de stationnement", kind: "option", patterns: ["parking assistant", "park(ing)?[- ]?assistent", "park assist", "assistant de stationnement", "aide au stationnement", "assistente (al )?parcheggio", "parkassistent"] },
   rear_camera: { label: "Caméra de recul", kind: "option", patterns: ["r[üu]ckfahrkamera", "(rear[- ]?view|reversing|backup) camera", "cam[ée]ra de recul", "telecamera posteriore"] },
-  adaptive_cruise: { label: "Régulateur de vitesse adaptatif", kind: "option", patterns: ["aktive?r? geschwindigkeitsregel", "adaptive[rn]? tempomat", "adaptive cruise", "\\bacc\\b", "r[ée]gulateur (de vitesse )?adaptatif", "cruise control mit bremse", "tempomat mit bremsfunktion"] },
+  adaptive_cruise: { label: "Régulateur de vitesse adaptatif", kind: "option", patterns: ["aktive?r? geschwindigkeitsregel", "adaptive[rn]? tempomat", "adaptive cruise", "r[ée]gulateur (de vitesse )?adaptatif", "cruise control mit bremse", "tempomat mit bremsfunktion"] },
   display_key: { label: "Clé écran (Display Key)", kind: "option", patterns: ["display[- ]?key", "displayschl[üu]ssel", "cl[ée] ([ée]cran|display)"] },
   ambient: { label: "Éclairage d'ambiance", kind: "option", patterns: ["ambiente?[- ]?(beleuchtung|licht|light)", "ambient (light|lighting)", "[ée]clairage d'?ambiance", "illuminazione ambient"] },
   wireless_charging: { label: "Recharge smartphone sans fil", kind: "option", patterns: ["wireless charging", "induktiv(es)? laden", "kabellos(es)? laden", "ladeschale", "charge(ment)? sans fil", "ricarica wireless"] },
@@ -74,11 +81,86 @@ export const CATALOG: Record<string, OptDef> = {
   tuned: { label: "Modifié / tuning", kind: "cond", patterns: ["tuning", "chip ?tuning", "stage ?[123]", "downpipe", "remap", "akrapovi[cč]", "capristo", "eisenmann", "\\bdinan\\b", "\\bjb4\\b", "leistungssteigerung", "reprogramm", "\\bhre\\b", "\\bkw suspension", "schnitzer", "\\bac schnitzer", "\\bg-power\\b", "manhart"] },
 };
 
+
+// --- enrichissement : langues supplémentaires (ES / IT / PT) et abréviations d'annonce ---------------------------------------
+const NEW_OPTIONS: Record<string, OptDef> = {
+  pdc: { label: "Aide au stationnement (PDC)", kind: "option", patterns: ["park ?distance ?control", "parkpilot", "einparkhilfe", "aide au stationnement", "sensores? de (aparcamiento|estacionamiento)", "sensori di parcheggio"], abbr: ["PDC"] },
+  navigation_pro: { label: "Navigation Professional", kind: "option", patterns: ["navigationssystem professional", "navi(gation)? prof(essional)?", "professional navi", "navigation professional", "navegador profesional", "gps professional"], abbr: ["NAVI PROF", "NAV PRO"] },
+  dct: { label: "Boîte M DCT (double embrayage)", kind: "body", patterns: ["m[- ]?dct", "doppelkupplung", "double embrayage", "doble embrague", "doppia frizione", "dual[- ]clutch"], abbr: ["DKG", "DCT", "M-DKG"] },
+  facelift: { label: "Restylage (LCI / Facelift)", kind: "body", patterns: ["facelift", "restyl(ing|[ée])", "modellpflege", "\\blci\\b"], abbr: ["LCI"] },
+  vat_deductible: { label: "TVA récupérable", kind: "cond", patterns: ["mwst\\.? ?ausweisbar", "mehrwertsteuer ausweisbar", "mwst\\.? ?erstattbar", "ausweisbare? mwst", "tva r[ée]cup[ée]rable", "tva d[ée]ductible", "iva (deducible|recuperable)", "iva esposta", "vat (deductible|reclaimable|refundable|recoverable)"] },
+};
+for (const [k, v] of Object.entries(NEW_OPTIONS)) CATALOG[k] = v;
+
+const MORE: Record<string, { patterns?: string[]; abbr?: string[] }> = {
+  carbon_roof: { patterns: ["cfk[- ]?dach", "carbon ?dach", "techo (de |en )?carbono", "tetto (in )?carbonio"], abbr: ["CFK"] },
+  carbon_seats: { patterns: ["asientos? (tipo )?(baquet|bucket|de carbono)", "sedili (a )?guscio", "schalensitze"], abbr: [] },
+  carbon_ceramic: { patterns: ["carbocer[áa]mic", "carbono[- ]?cer[áa]mic", "freni carboceramici", "keramik ?bremse", "m carbon[- ]?keramik"], abbr: ["CCB"] },
+  drivers_package: { patterns: ["pack(et)? m driver", "paquete m driver", "pacchetto m driver"], abbr: ["MDP"] },
+  carbon_package: { patterns: ["paquete (de )?carbono", "pacchetto carbonio", "m carbon (exterieur|paket)"] },
+  adaptive_susp: { patterns: ["suspensi[óo]n (m )?adaptativ", "sospensioni (m )?adattive", "adaptives? fahrwerk", "m adaptive"], abbr: ["EDC"] },
+  m_diff: { patterns: ["diferencial (m|autoblocante)", "differenziale (m|autobloccante)"] },
+  sport_exhaust: { patterns: ["escape (deportivo|m|sport)", "scarico sportivo", "sportauspuff", "sportauspuffanlage", "klappen(auspuff|abgas)"], abbr: ["SAG"] },
+  head_up: { patterns: ["head[- ]?up", "proyecci[óo]n (en )?(el )?parabrisas", "visualizzatore head", "bmw head"], abbr: ["HUD", "HeadUp"] },
+  harman: { patterns: ["harman[ /&-]*kardon", "harman ?kard"], abbr: ["HK", "H&K", "H/K", "H & K"] },
+  bowers: { patterns: ["bowers"], abbr: ["B&W", "B & W"] },
+  laser: { patterns: ["\\blaser\\b(?!\\s*(print|schwei))", "luz l[áa]ser", "faros? l[áa]ser", "fari laser", "laserlicht", "laserscheinwerfer", "bmw laserlight"] },
+  driving_assist_pro: { patterns: ["driving assistant professional", "driving assist(ant)? ?(pro|prof)", "asistente de conducci[óo]n (pro|profesional|plus)", "assistente alla guida (pro|professional)", "fahrassistenz[- ]?(paket )?(professional|plus)", "assistenzsysteme professional"], abbr: ["DA PRO"] },
+  glass_roof: { patterns: ["techo (solar|panor[áa]mico|de cristal|el[ée]ctrico)", "tetto (apribile|panoramico|in vetro)", "glas ?schiebedach", "glas ?hebe", "panoramaglas", "toit vitr[ée]"], abbr: ["GSD", "SSD", "PanoDach", "SHD"] },
+  ventilated_seats: { patterns: ["asientos? (ventilados|con ventilaci[óo]n)", "sedili ventilati", "aktive sitzbel[üu]ftung", "sitzbel[üu]ftung"] },
+  heated_seats: { patterns: ["asientos? (calefactados|calefactables|con calefacci[óo]n|calefactado)", "sedili riscaldati", "sitzheiz", "sitze beheizbar", "beheizbare sitze", "si[èe]ges? chauffants?"], abbr: ["SHZ"] },
+  keyless: { patterns: ["acceso confort", "accesso comfort", "comfort[- ]?zugang", "keyless[- ]?(go|entry)?", "acc[èe]s sans cl[ée]", "arranque sin llave"] },
+  individual: { patterns: ["\\bindividual\\b", "pintura (individual|especial)", "vernice (individual|speciale)", "bmw individual", "individual[- ]?(lack|farbe|paint|peinture|color|colour|lackierung)", "sonderlack", "sonderfarbe", "frozen [a-z]+"] },
+  manual: { patterns: ["cambio manual", "caja manual", "transmisi[óo]n manual", "cambio mec[áa]nico", "bo[iî]te m[ée]canique", "bo[iî]te manuelle", "handschalter", "handschalt", "6[- ]?gang[- ]?(manuell|schalt|handschalt)", "6[- ]?speed manual", "schaltgetriebe", "manuale\\b"], abbr: ["6MT"] },
+  ppf: { patterns: ["lackschutzfolie", "paint protection", "film de protection", "pel[íi]cula protectora", "pellicola protettiva", "xpel", "stek", "suntek"], abbr: ["PPF"] },
+  winter_tires: { patterns: ["winterr[äa]der", "winterreifen", "winterkompletträder", "ruedas de invierno", "neum[áa]ticos de invierno", "pneumatici invernali", "ruote invernali", "pneus? hiver", "jeu de roues hiver"] },
+  m_sport_package: { patterns: ["paquete m sport", "pacchetto m sport", "pack m sport", "m ?sportpaket", "m sport pro", "m ?sport ?package"], abbr: ["MSP"] },
+  competition_package: { patterns: ["paquete competition", "pacchetto competition", "competition[- ]?(paket|package|pack)"] },
+  track_package: { patterns: ["paquete (m )?track", "pacchetto (m )?track", "(race[- ]?)?track[- ]?(paket|package|pack)"] },
+  m_sport_seats: { patterns: ["asientos? m sport", "sedili m sport", "m ?sportsitz"] },
+  comfort_seats: { patterns: ["asientos (el[ée]ctricos|con memoria|confort)", "sedili (elettrici|con memoria|comfort)", "sitzmemory", "memory[- ]?sitz", "sitzspeicher", "elektrische sitze", "elektr\\.? sitze", "komfortsitze"] },
+  merino: { patterns: ["piel merino", "pelle merino", "cuero (merino|integral)", "piel integral", "vollleder", "volllederausstattung", "leder merino", "merino"] },
+  alcantara: { patterns: ["alcantara"] },
+  carbon_trim: { patterns: ["molduras? (de )?carbono", "rivestimenti in carbonio", "carbon fibre", "carbon[- ]?fiber", "interieurleisten carbon", "carbon[- ]?(interieur|innenraum|zierleisten|trim|decor|dekor|inlay)"] },
+  carbon_hood: { patterns: ["cap[óo] (de )?carbono", "carbon[- ]?(motorhaube|haube|hood|bonnet)"] },
+  carbon_mirrors: { patterns: ["retrovisores? (de )?carbono", "carbon[- ]?(au[ßs]en)?spiegel", "specchietti in carbonio", "carbon[- ]?spiegelkappen"] },
+  carbon_aero: { patterns: ["aler[óo]n (de )?carbono", "spoiler in carbonio", "carbon[- ]?(heck)?spoiler", "carbon[- ]?(lippe|splitter|diffusor)", "carbon[- ]?(heckdiffusor|frontsplitter)"] },
+  surround_view: { patterns: ["c[áa]maras? (de )?360", "visi[óo]n (de )?360", "surround[- ]?view", "top[- ]?view", "360 ?(°|grad)", "rundum(sicht)?[- ]?kamera", "telecamere 360", "cam[ée]ra 360", "kamera 360"], abbr: ["SVC", "360°"] },
+  parking_assistant: { patterns: ["asistente de (aparcamiento|estacionamiento)", "parking assistant", "park(ing)?[- ]?assist(ent)?", "assistente (al )?parcheggio", "assistant de stationnement", "parkassistent"] },
+  rear_camera: { patterns: ["c[áa]mara (trasera|de (marcha atr[áa]s|visi[óo]n trasera|aparcamiento))", "telecamera (posteriore|di parcheggio)", "r[üu]ckfahrkamera", "cam[ée]ra de recul", "rear[- ]?view camera", "reversing camera"], abbr: ["RFK", "RFKS"] },
+  adaptive_cruise: { patterns: ["control de crucero adaptativ", "cruise control adattivo", "regolatore di velocit[àa] adattivo", "aktive geschwindigkeitsregel", "adaptive[rn]? tempomat", "adaptive cruise", "r[ée]gulateur (de vitesse )?adaptatif", "distronic", "tempomat mit bremsfunktion"], abbr: ["ACC"] },
+  display_key: { patterns: ["display[- ]?key", "displayschl[üu]ssel", "llave (con )?pantalla", "chiave display"] },
+  ambient: { patterns: ["luz ambiental", "luces ambientales", "illuminazione ambient", "ambiente?[- ]?(beleuchtung|licht|light)", "ambient (light|lighting)"] },
+  wireless_charging: { patterns: ["carga inal[áa]mbrica", "cargador inal[áa]mbrico", "ricarica wireless", "ricarica induttiva", "wireless charging", "induktiv(es)? laden", "kabellos(es)? laden", "ladeschale"] },
+  carplay: { patterns: ["apple ?carplay", "carplay"] },
+  led_headlights: { patterns: ["faros led", "fari (a )?led", "adaptive led", "led[- ]?scheinwerfer", "phares? led"] },
+  heated_wheel: { patterns: ["volante (calefactable|calefactado)", "volante riscaldato", "lenkradheizung", "volant chauffant", "heated steering"] },
+  tow_bar: { patterns: ["enganche (de )?remolque", "gancho (de )?remolque", "bola de remolque", "gancio traino", "anh[äa]ngerkupplung", "attelage"], abbr: ["AHK", "AHZV"] },
+  parking_heater: { patterns: ["calefacci[óo]n (auxiliar|estacionaria)", "riscaldamento (ausiliario|a veicolo fermo)", "standheizung", "chauffage (auxiliaire|stationnaire)"], abbr: ["STH"] },
+  soft_close: { patterns: ["soft[- ]?close", "cierre (asistido|suave)", "komfortschlie[ßs]"] },
+  forged_wheels: { patterns: ["llantas forjadas", "cerchi forgiati", "jantes? forg[ée]es?", "geschmiedete? (r[äa]der|felgen)", "schmiede(r[äa]der|felgen)"] },
+  m_brakes: { patterns: ["frenos m (sport|compound)", "m[- ]?sportbremse", "m[- ]?compound", "freins? m (sport|compound)", "m sport brakes?", "freni m sport"] },
+  active_steering: { patterns: ["direcci[óo]n (integral|activa)", "integral[- ]?aktivlenkung", "integral active steering", "direction int[ée]grale", "hinterachslenkung"] },
+  sound_system: { patterns: ["hifi[- ]?(system|lautsprecher)?\\s*(professional|prof\\.?)", "hi-?fi pro", "premium sound", "sistema de sonido premium", "audio(system)? (haut de gamme|premium)"] },
+  service_history: { patterns: ["libro de (mantenimiento|revisiones|servicio)", "revisiones (oficiales|en bmw|al d[íi]a)", "mantenimientos? (oficial|en bmw|al d[íi]a)", "tagliandi (bmw|ufficiali)", "libretto (tagliandi|di servizio)", "scheckheft", "serviceheft", "checkheft", "l[üu]ckenlos", "carnet d'?entretien", "historique (d'?entretien|complet)", "full service history", "service history"], abbr: ["SH gepflegt", "SCKH"] },
+  first_owner: { patterns: ["[úu]nico propietario", "primer propietario", "1 propietario", "primo proprietario", "un solo proprietario", "erstbesitz", "erste hand", "1\\. ?hand", "1 vorbesitzer", "ein vorbesitzer", "premi[èe]re main", "1st owner", "first owner", "one owner", "1 propri[ée]taire"], abbr: ["1.Hd", "1. Hd"] },
+  warranty: { patterns: ["garant[íi]a (oficial|bmw|de f[áa]brica|\\d+ meses|de \\d)", "garanzia (bmw|ufficiale|\\d+ mesi)", "garantie", "warranty", "premium selection", "anschlussgarantie", "garantia"] },
+  nonsmoker: { patterns: ["no fumador", "non fumatore", "nichtraucher", "non[- ]?fumeur", "non[- ]?smoker"] },
+  recent_inspection: { patterns: ["itv (reci[ée]n|nueva|pasada|reciente)", "revisione (appena|nuova)", "frisch(e|er)? (service|t[üu]v|hu\\b|inspektion)", "neu(e|er)? (t[üu]v|hu\\b)", "t[üu]v neu", "hu/au neu", "service neu", "inspection (neuve|r[ée]cente)", "contr[ôo]le technique (ok|vierge)", "mfk (neu|frisch)", "frisch ab mfk", "gerade gewartet"] },
+  accident_free: { patterns: ["sin accidentes", "senza incidenti", "unfallfrei", "sans accident", "accident[- ]?free", "no accident", "non accident[ée]", "kein unfall"], abbr: ["UFF"] },
+  accident: { patterns: ["accidentado", "siniestrado", "incidentato", "unfallschaden", "unfallfahrzeug", "vorschaden", "accident[ée](?!\\s*free)", "v[ée]hicule accident", "damaged", "reparierter? (schaden|unfall)", "da[ñn]os? (de )?(carrocer[íi]a|accidente)"] },
+};
+for (const [k, add] of Object.entries(MORE)) {
+  const d = CATALOG[k]; if (!d) continue;
+  d.patterns = [...new Set([...d.patterns, ...(add.patterns ?? [])])];
+  if (add.abbr) d.abbr = [...new Set([...(d.abbr ?? []), ...add.abbr])];
+}
+
 // Effet attendu sur le prix, quand il n'est pas « hausse » (valeur par défaut des équipements et des états favorables).
 const SIGN_OVERRIDES: Record<string, 1 | -1 | 0> = {
   accident: -1,
   tuned: 0, manual: 0, tow_bar: 0, parking_heater: 0, winter_tires: 0, individual: 0, m_performance_parts: 0, competition_package: 0, track_package: 0,
-  xdrive: 0, body_touring: 0, body_convertible: 0, body_gran_coupe: 0,
+  xdrive: 0, body_touring: 0, body_convertible: 0, body_gran_coupe: 0, dct: 0, facelift: 0, vat_deductible: 0, navigation_pro: 1,
 };
 for (const [k, v] of Object.entries(CATALOG)) v.sign = SIGN_OVERRIDES[k] ?? 1;
 
@@ -93,21 +175,32 @@ const COMPILED: Record<string, RegExp[]> = Object.fromEntries(
 );
 
 export const OPT_KEYS = Object.entries(CATALOG).filter(([, v]) => v.kind !== "cond").map(([k]) => k);
-export const COND_KEYS = ["accident_free", "service_history", "first_owner", "warranty", "accident", "tuned", "nonsmoker", "recent_inspection"];
+export const COND_KEYS = ["vat_deductible", "accident_free", "service_history", "first_owner", "warranty", "accident", "tuned", "nonsmoker", "recent_inspection"];
 
-/** Retourne [options, indicateurs d'état] détectés dans le texte. */
+const ABBR: Record<string, RegExp> = {};
+for (const [k, v] of Object.entries(CATALOG)) {
+  if (!v.abbr?.length) continue;
+  const alt = v.abbr.map((a) => a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "\\s?")).join("|");
+  ABBR[k] = new RegExp(`(?<![A-Za-z0-9ÄÖÜäöüéèà])(?:${alt})(?![A-Za-z0-9ÄÖÜäöüéèà])`); // sensible à la casse, mot isolé
+}
+
+const WORD = "[^\\s,;.*/|•\\n]+";
+/** « ohne / kein / sans / sin Unfall… » = sans accident ; les autres négations effacent les 1 à 3 mots suivants (« ohne Anhängerkupplung »). */
+const NEG_ACCIDENT = /\b(?:ohne|kein[e]?[nrms]?|sans|sin|senza|without|nicht|pas d['e][ \t]?)[ \t]+(?:[a-zà-ÿ]+[ \t]+)?(?:unf[äa]lle?n?\w*|vorsch[äa]den\w*|accident\w*|sch[äa]den|incident\w*|dommages?|da[ñn]os?)(?![a-zà-ÿ])/gi;
+const NEG_ANY = new RegExp(`\\b(?:ohne|keine?[nrms]?|sans|sin|senza|without|nicht|pas d['e][ \\t]?)[ \\t]+(?:${WORD}[ \\t]+){0,2}${WORD}`, "gi");
+
+/** Retourne [options, indicateurs d'état] détectés dans le texte (titre, description, listes d'équipements ; un élément par ligne ou séparé par « ; »). */
 export function extract(textIn: string): [string[], string[]] {
   if (!textIn) return [[], []];
-  // on neutralise les négations (« keine Garantie », « sans garantie »…)
-  const text = textIn.replace(/_/g, " ").replace(/\b(keine|ohne|sans|no|kein)\s+(garantie|warranty|unfall)/gi, " ");
+  const text = textIn.replace(/_/g, " ").replace(NEG_ACCIDENT, " unfallfrei ").replace(NEG_ANY, " ");
   const opts: string[] = [];
   const conds: string[] = [];
   for (const [key, regs] of Object.entries(COMPILED)) {
-    if (regs.some((r) => r.test(text))) (CATALOG[key].kind === "cond" ? conds : opts).push(key);
+    if (regs.some((r) => r.test(text)) || (ABBR[key] && ABBR[key].test(text))) (CATALOG[key].kind === "cond" ? conds : opts).push(key);
   }
   // « sans accident » l'emporte sur « accident »
   if (conds.includes("accident_free") && conds.includes("accident")) {
-    const clear = /unfallschaden|unfallfahrzeug|vorschaden|accident[ée]\b(?! free)/i.test(text);
+    const clear = /unfallschaden|unfallfahrzeug|vorschaden|accident[ée]\b(?! free)|accidentado|siniestrado/i.test(text);
     if (!clear || /unfallfrei/i.test(text)) conds.splice(conds.indexOf("accident"), 1);
   }
   return [opts, conds];

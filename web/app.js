@@ -61,29 +61,42 @@ async function loadMarket() {
   applyMarketAvailability();
   renderSegments();
 }
-/** Le choix Suisse / Allemagne n'apparaît que s'il existe des annonces suisses ; sinon tout porte sur l'Allemagne. */
+const MARKETS = { CH: ["🇨🇭", "Suisse"], DE: ["🇩🇪", "Allemagne"], FR: ["🇫🇷", "France"], ES: ["🇪🇸", "Espagne"] };
+const MARKET_ORDER = ["CH", "DE", "FR", "ES"];
+/** Pays pour lesquels il existe des annonces ; les choix de pays n'apparaissent que pour ceux-là. */
 function applyMarketAvailability() {
-  const hasCH = SUMMARY.segments.some((s) => s.n_ch > 0);
-  CFG.hasCH = hasCH;
-  document.body.classList.toggle("no-ch", !hasCH);
-  $("#f-market").closest("label").hidden = !hasCH;
-  if (!hasCH) { $("#f-market").value = "DE"; $("#l-market").value = ""; }
-  $("#l-market").hidden = !hasCH;
+  const has = (c) => SUMMARY.segments.some((s) => s["n_" + c.toLowerCase()] > 0);
+  const av = MARKET_ORDER.filter(has);
+  CFG.markets = av.length ? av : ["DE"];
+  CFG.hasCH = CFG.markets.includes("CH");
+  const sel = $("#f-market"), prev = sel.value;
+  sel.innerHTML = CFG.markets.map((c) => `<option value="${c}">${MARKETS[c][0]} ${MARKETS[c][1]}</option>`).join("");
+  sel.value = CFG.markets.includes(prev) ? prev : CFG.markets.includes("CH") ? "CH" : CFG.markets[0];
+  sel.closest("label").hidden = CFG.markets.length < 2;
 }
 function renderSegments() {
-  const cur = $("#mk-currency").value, fx = SUMMARY.fx_chf_eur;
+  const cur = $("#mk-currency").value, fx = SUMMARY.fx_chf_eur, mk = CFG.markets;
   const conv = (v) => (v == null ? null : cur === "chf" ? v / fx : v);
+  const cols = [["segment", "Segment", ""], ["n", "Annonces", "num"], ["median_age", "Âge méd.", "num"], ["median_km", "Km méd.", "num"],
+    ...mk.map((c) => [`median_${c.toLowerCase()}_eur`, `Médiane ${c}`, "num"]),
+    ...(mk.includes("DE") ? mk.filter((c) => c !== "DE").map((c) => [`${c.toLowerCase()}_premium_pct`, `${c} vs DE`, "num"]) : []), ["trend_pct", "Tendance", "num"]];
+  $("#segtable thead").innerHTML = "<tr>" + cols.map(([k, t, c]) => `<th data-sort="${k}" class="${c}">${t}</th>`).join("") + "</tr>";
   const rows = [...SUMMARY.segments].sort((a, b) => {
     const x = a[segSort.key], y = b[segSort.key];
     if (x == null) return 1; if (y == null) return -1;
     return (typeof x === "string" ? x.localeCompare(y) : x - y) * segSort.dir;
   });
-  $("#segtable tbody").innerHTML = rows.map((s) => `<tr>
-    <td><b>${esc(s.segment)}</b></td><td class="num">${s.n} ${CFG.hasCH ? `<small class="muted">(${s.n_de} DE · ${s.n_ch} CH)</small>` : ""}</td>
-    <td class="num">${s.median_age} ans</td><td class="num">${nf.format(s.median_km)}</td>
-    <td class="num">${money(conv(s.median_de_eur), cur)}</td><td class="num col-ch">${money(conv(s.median_ch_eur), cur)}</td>
-    <td class="num col-ch ${cls(s.ch_premium_pct)}">${s.ch_premium_pct == null ? "—" : pct(s.ch_premium_pct)}</td>
-    <td class="num ${cls(s.trend_pct)}">${s.trend_pct == null ? "—" : pct(s.trend_pct)}</td></tr>`).join("") || `<tr><td colspan="8" class="muted">Aucune donnée.</td></tr>`;
+  $("#segtable tbody").innerHTML = rows.map((s) => {
+    const split = mk.length > 1 ? `<small class="muted">(${mk.map((c) => s["n_" + c.toLowerCase()] + " " + c).join(" · ")})</small>` : "";
+    const tds = cols.slice(2).map(([k]) => {
+      const v = s[k];
+      if (k === "median_age") return `<td class="num">${v} ans</td>`;
+      if (k === "median_km") return `<td class="num">${nf.format(v)}</td>`;
+      if (k.endsWith("_eur")) return `<td class="num">${money(conv(v), cur)}</td>`;
+      return `<td class="num ${cls(v)}">${v == null ? "—" : pct(v)}</td>`;
+    }).join("");
+    return `<tr><td><b>${esc(s.segment)}</b></td><td class="num">${s.n} ${split}</td>${tds}</tr>`;
+  }).join("") || `<tr><td colspan="${cols.length}" class="muted">Aucune donnée.</td></tr>`;
 }
 $("#mk-currency").addEventListener("change", renderSegments);
 /** Recharge le marché (et la compatibilité des options) ; avertit si de nouvelles données sont arrivées. */
@@ -113,14 +126,13 @@ $("#segtable thead").addEventListener("click", (e) => {
 
 // ---------- formulaire d'estimation
 /** Après un rechargement de la configuration : conserve les choix en cours, met à jour les puces compatibles. */
-function fillFamilySelectsKeep() { renderEstimateChips(); renderListingChips(); fillBodySelect(); }
+function fillFamilySelectsKeep() { renderEstimateChips(); renderListingChips(); fillListGens(); fillBodySelect(); }
 function fillFamilySelects() {
   const fams = Object.keys(CFG.families);
   for (const id of ["#f-family", "#o-family"]) $(id).innerHTML = fams.map((f) => `<option>${esc(f)}</option>`).join("");
   $("#l-family").innerHTML = `<option value="">Tous les modèles</option>` + fams.map((f) => `<option>${esc(f)}</option>`).join("");
   $("#f-family").value = "M3"; $("#o-family").value = "M3"; fillOptGens();
-  renderListingChips(); fillBodySelect();
-  $("#l-color").innerHTML = '<option value="">Toutes couleurs</option>' + (CFG.colors || []).map((c) => `<option>${esc(c)}</option>`).join("");
+  renderListingChips(); fillListGens(); fillBodySelect();
   onFamily();
 }
 const chip = (o) => `<label class="chip"><input type="checkbox" value="${esc(o.key)}"><span>${esc(o.label)}</span></label>`;
@@ -142,21 +154,9 @@ function renderEstimateChips() {
   fillChips("#f-options", "option", av); fillChips("#f-bodies", "body", av); fillChips("#f-flags", "cond", av);
 }
 function renderListingChips() {
-  const av = compatKeys($("#l-family").value, "");
+  const av = compatKeys($("#l-family").value, $("#l-gen").value);
   const kinds = [["#l-options", "option"], ["#l-bodies", "body"], ["#l-flags", "cond"]];
   for (const [sel, k] of kinds) { const prev = $$(sel + " input:checked").map((i) => i.value); $(sel).innerHTML = CFG.options.filter((o) => o.kind === k && !(sel === "#l-bodies" && o.key.startsWith("body_")) && (k === "cond" || !av || av.has(o.key))).map(chip).join(""); $$(sel + " input").forEach((i) => { i.checked = prev.includes(i.value); }); }
-}
-const BODY_KEYS = ["body_touring", "body_convertible", "body_gran_coupe"];
-/** Liste déroulante « carrosserie » : seulement les carrosseries qui existent pour le modèle choisi. */
-function fillBodySelect() {
-  const sel = $("#l-body"), prev = sel.value, fam = $("#l-family").value;
-  let av = compatKeys(fam, "");
-  if (!fam && CFG.compat) { av = new Set(); for (const c of Object.values(CFG.compat)) c.options.forEach((x) => av.add(x)); }
-  const bodies = BODY_KEYS.filter((k) => !av || av.has(k));
-  sel.hidden = !bodies.length;
-  sel.innerHTML = `<option value="">Toutes carrosseries</option><option value="standard">Coupé / berline</option>` +
-    bodies.map((k) => `<option value="${k}">${esc(labelOf(k).replace(/^Carrosserie /, ""))}</option>`).join("");
-  sel.value = bodies.includes(prev) || prev === "standard" ? prev : "";
 }
 function onFamily() {
   const gens = CFG.families[$("#f-family").value];
@@ -229,7 +229,7 @@ function renderResult(r, spec) {
   }
   lastResult = { r, spec };
   if (!CFG.hasCH) h += `<p class="hint">Aucune annonce suisse n'est encore collectée : cette cote est celle du marché allemand.</p>`;
-  h += `</div><aside class="rail-side"><b>Et si je l'achète ?</b>${calcButtons(spec.market === "CH" ? "Comparer à l'import DE" : "Simuler l'import en Suisse", "est")}</aside>`;
+  h += `</div><aside class="rail-side"><b>Et si je l'achète ?</b><div class="rail-btns">${calcButtons(spec.market === "CH" ? "Comparer à l'import DE" : "Simuler l'import en Suisse", "est")}</div></aside>`;
   box.innerHTML = h;
 }
 function compLink(c) {
@@ -271,39 +271,143 @@ async function loadOptions() {
 $("#o-family").addEventListener("change", () => { fillOptGens(); loadOptions(); });
 $("#o-gen").addEventListener("change", loadOptions);
 
-// ---------- annonces
-async function loadListings() {
-  const q = new URLSearchParams({ family: $("#l-family").value, market: $("#l-market").value, sort: $("#l-sort").value, q: $("#l-q").value, limit: 80,
-    color: $("#l-color").value, year_min: $("#l-yearmin").value, km_max: $("#l-kmmax").value,
-    options: [...$$("#l-options input:checked, #l-bodies input:checked").map((i) => i.value), ...(BODY_KEYS.includes($("#l-body").value) ? [$("#l-body").value] : [])].join(","),
-    flags: $$("#l-flags input:checked").map((i) => i.value).join(","), hide_damaged: $("#l-hide-damaged").checked ? "1" : "0" });
-  if ($("#l-body").value === "standard") q.set("body", "standard");
-  const nsel = $$("#l-options input:checked, #l-bodies input:checked, #l-flags input:checked").length; $("#l-opt-n").textContent = nsel ? `(${nsel} sélectionnée${nsel > 1 ? "s" : ""})` : "";
-  const [r, wl] = await Promise.all([api("/api/listings?" + q), api("/api/watch?light=1").catch(() => [])]);
-  WATCHED.clear(); wl.forEach((w) => { if (w.spec?.kind === "listing") WATCHED.set(String(w.spec.listing_id), w.id); });
-  LISTINGS.clear(); r.items.forEach((i) => LISTINGS.set(String(i.id), i));
-  $("#l-count").textContent = `${r.total} annonces${r.total > 80 ? " (80 affichées)" : ""}. « Cote » = prix demandé attendu par le modèle ; un écart négatif = moins cher que prévu.`;
-  $("#ltable tbody").innerHTML = r.items.map((i) => {
-    const link = /^https?:\/\//.test(i.url || "") ? `<a href="${esc(i.url)}" target="_blank" rel="noopener noreferrer">${esc(i.title)}</a>` : esc(i.title);
-    const warn = (i.damaged ? '<span class="tag dmg">épave / défectueux</span>' : "") + (i.accident && !i.damaged ? '<span class="tag dmg">accidenté</span>' : "")
-      + (i.suspect && !i.damaged ? '<span class="tag chk">prix très bas : à vérifier</span>' : "");
-    const opts = warn + [...i.options.slice(0, 3), ...i.flags.filter((f) => f !== "accident").slice(0, 2)].map((o) => `<span class="tag">${esc(labelOf(o))}</span>`).join("");
-    const on = WATCHED.has(String(i.id));
-    const follow = `<button type="button" class="mini follow${on ? " on" : ""}" data-follow="${esc(i.id)}">${on ? "★ Suivie" : "☆ Suivre"}</button>`;
-    return `<tr><td>${link}<br><small class="muted">${esc(i.segment)} · ${esc(i.version)} · ${esc(i.country)}${i.color ? " · " + esc(i.color) : ""}${i.model_conf < 0.7 ? " · modèle incertain" : ""}</small><div>${opts}</div></td>
-      <td class="num">${i.year}</td><td class="num">${nf.format(i.km)}</td><td class="num">${money(i.price, i.currency.toLowerCase())}</td>
-      <td class="num">${money(i.expected_eur, "eur")}</td><td class="num ${i.gap_pct == null ? "" : i.gap_pct < 0 ? "good" : "bad"}">${i.gap_pct == null ? "—" : pct(i.gap_pct)}${i.gap_pct != null && i.gap_pct <= -8 && !i.suspect && !i.damaged && !i.accident ? '<br><span class="tag deal">bonne affaire</span>' : ""}</td>
-      <td class="rail">${calcButtons(i.country === "CH" ? "Comparer à l'import DE" : "Import en Suisse", i.id, follow)}</td></tr>`;
-  }).join("") || `<tr><td colspan="7" class="muted">Aucune annonce.</td></tr>`;
-}
+// ---------- annonces (cartes + filtres latéraux)
 const LISTINGS = new Map(), WATCHED = new Map();
-const calcButtons = (importLabel, id, extra = "") => `<div class="rail-btns"><button type="button" class="mini" data-act="import" data-id="${esc(id)}">⇄ ${esc(importLabel)}</button><button type="button" class="mini" data-act="credit" data-id="${esc(id)}">▤ Crédit / leasing</button>${extra}</div>`;
+const COLOR_HEX = { Noir: "#1b1b1f", Blanc: "#f1f1ee", Gris: "#8a8f98", Argent: "#c5c9d0", Bleu: "#1f5fbf", Rouge: "#c8202f", Vert: "#2e7d4f", Jaune: "#f1c40f", Orange: "#f07f1a", "Brun / beige": "#9a7b5a", Violet: "#7b4fb0", Autre: "#a9adb5" };
+const LF = { market: "", color: "", offset: 0, total: 0 };
+const BODY_KEYS = ["body_touring", "body_convertible", "body_gran_coupe"];
 const labelOf = (k) => (CFG.options.find((o) => o.key === k) || { label: k }).label;
-["#l-market", "#l-sort", "#l-color", "#l-body", "#l-hide-damaged"].forEach((s) => $(s).addEventListener("change", loadListings));
-$("#l-family").addEventListener("change", () => { renderListingChips(); fillBodySelect(); loadListings(); });
-["#l-yearmin", "#l-kmmax"].forEach((s) => $(s).addEventListener("input", () => { clearTimeout(lt); lt = setTimeout(loadListings, 500); }));
-["#l-options", "#l-bodies", "#l-flags"].forEach((s) => $(s).addEventListener("change", loadListings));
-let lt; $("#l-q").addEventListener("input", () => { clearTimeout(lt); lt = setTimeout(loadListings, 350); });
+const flagOf = (c) => (MARKETS[c] ? MARKETS[c][0] : c);
+const calcButtons = (importLabel, id, extra = "") => `<button type="button" class="mini" data-act="import" data-id="${esc(id)}">⇄ ${esc(importLabel)}</button><button type="button" class="mini" data-act="credit" data-id="${esc(id)}">▤ Crédit / leasing</button>${extra}`;
+
+/** Liste « carrosserie » : seulement les carrosseries qui existent pour le modèle (et la génération) choisis. */
+function fillBodySelect() {
+  const sel = $("#l-body"), prev = sel.value, fam = $("#l-family").value, gen = $("#l-gen").value;
+  let av = compatKeys(fam, gen);
+  if (!fam && CFG.compat) { av = new Set(); for (const c of Object.values(CFG.compat)) c.options.forEach((x) => av.add(x)); }
+  const bodies = BODY_KEYS.filter((k) => !av || av.has(k));
+  sel.hidden = !bodies.length;
+  sel.innerHTML = `<option value="">Toutes carrosseries</option><option value="standard">Coupé / berline</option>` +
+    bodies.map((k) => `<option value="${k}">${esc(labelOf(k).replace(/^Carrosserie /, ""))}</option>`).join("");
+  sel.value = bodies.includes(prev) || prev === "standard" ? prev : "";
+}
+function fillListGens() {
+  const fam = $("#l-family").value, sel = $("#l-gen"), prev = sel.value, gens = CFG.families[fam] || [];
+  sel.hidden = !fam;
+  sel.innerHTML = `<option value="">Toutes générations</option>` + gens.map((g) => `<option value="${esc(g.code)}">${esc(g.code)} (${g.years[0]}–${g.years[1] > 2030 ? "…" : g.years[1]})</option>`).join("");
+  sel.value = gens.some((g) => g.code === prev) ? prev : "";
+}
+function listParams(offset, limit) {
+  const q = new URLSearchParams({ family: $("#l-family").value, generation: $("#l-gen").value, market: LF.market, sort: $("#l-sort").value, q: $("#l-q").value.trim(), limit, offset,
+    color: LF.color, year_min: $("#l-yearmin").value, year_max: $("#l-yearmax").value, km_max: $("#l-kmmax").value, price_max: $("#l-pricemax").value,
+    options: [...$$("#l-options input:checked, #l-bodies input:checked").map((i) => i.value), ...(BODY_KEYS.includes($("#l-body").value) ? [$("#l-body").value] : [])].join(","),
+    flags: $$("#l-flags input:checked").map((i) => i.value).join(","), hide_damaged: $("#l-hide-damaged").checked ? "1" : "0", deals: $("#l-deals").checked ? "1" : "0" });
+  if ($("#l-body").value === "standard") q.set("body", "standard");
+  return q;
+}
+/** Puces des filtres actifs, chacune supprimable. */
+function renderActive() {
+  const chips = [];
+  const add = (label, clear) => chips.push([label, clear]);
+  if (LF.market) add(`${flagOf(LF.market)} ${MARKETS[LF.market][1]}`, () => (LF.market = ""));
+  if ($("#l-family").value) add($("#l-family").value, () => { $("#l-family").value = ""; fillListGens(); renderListingChips(); fillBodySelect(); });
+  if ($("#l-gen").value) add($("#l-gen").value, () => { $("#l-gen").value = ""; fillBodySelect(); });
+  if ($("#l-body").value) add($("#l-body").selectedOptions[0].textContent, () => ($("#l-body").value = ""));
+  if ($("#l-yearmin").value || $("#l-yearmax").value) add(`Année ${$("#l-yearmin").value || "…"}–${$("#l-yearmax").value || "…"}`, () => { $("#l-yearmin").value = ""; $("#l-yearmax").value = ""; });
+  if ($("#l-kmmax").value) add(`≤ ${nf.format($("#l-kmmax").value)} km`, () => ($("#l-kmmax").value = ""));
+  if ($("#l-pricemax").value) add(`≤ ${nf.format($("#l-pricemax").value)} €`, () => ($("#l-pricemax").value = ""));
+  if (LF.color) add(LF.color, () => (LF.color = ""));
+  if ($("#l-q").value.trim()) add(`« ${$("#l-q").value.trim()} »`, () => ($("#l-q").value = ""));
+  if ($("#l-deals").checked) add("Bonnes affaires", () => ($("#l-deals").checked = false));
+  if (!$("#l-hide-damaged").checked) add("Accidentés inclus", () => ($("#l-hide-damaged").checked = true));
+  for (const i of $$("#l-options input:checked, #l-bodies input:checked, #l-flags input:checked")) add(labelOf(i.value), () => (i.checked = false));
+  $("#l-active").innerHTML = chips.map(([l], n) => `<button type="button" class="achip" data-n="${n}">${esc(l)} <span aria-hidden="true">✕</span></button>`).join("");
+  renderActive.chips = chips;
+}
+$("#l-active").addEventListener("click", (e) => { const b = e.target.closest(".achip"); if (!b) return; renderActive.chips[Number(b.dataset.n)][1](); loadListings(); });
+
+function renderFacets(f) {
+  const total = Object.values(f.markets).reduce((a, b) => a + b, 0);
+  const mk = MARKET_ORDER.filter((c) => f.markets[c] || LF.market === c);
+  $("#lg-market").hidden = mk.length < 2;
+  $("#l-market").innerHTML = `<button type="button" data-m="" class="${LF.market ? "" : "on"}">Tous <small>${total}</small></button>` +
+    mk.map((c) => `<button type="button" data-m="${c}" class="${LF.market === c ? "on" : ""}">${MARKETS[c][0]} <small>${f.markets[c] ?? 0}</small></button>`).join("");
+  const cols = (CFG.colors || []).filter((c) => f.colors[c] || LF.color === c);
+  $("#lg-color").hidden = !cols.length;
+  $("#l-colors").innerHTML = cols.map((c) => `<button type="button" class="sw${LF.color === c ? " on" : ""}" data-c="${esc(c)}" title="${esc(c)} (${f.colors[c] ?? 0})"><i style="background:${COLOR_HEX[c] || "#aaa"}"></i><small>${f.colors[c] ?? 0}</small></button>`).join("");
+}
+$("#l-market").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; LF.market = b.dataset.m; loadListings(); });
+$("#l-colors").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; LF.color = LF.color === b.dataset.c ? "" : b.dataset.c; loadListings(); });
+
+function gauge(gap) {
+  if (gap == null) return "";
+  const w = Math.min(Math.abs(gap), 30) / 30 * 50;
+  return `<div class="gauge" title="Écart à la cote : ${pct(gap)}"><span class="mid"></span><i class="${gap < 0 ? "neg" : "pos"}" style="${gap < 0 ? `right:50%` : `left:50%`};width:${w}%"></i></div>`;
+}
+function cardHtml(i) {
+  const cur = i.currency.toLowerCase();
+  const warn = (i.damaged ? '<span class="tag dmg">épave / défectueux</span>' : "") + (i.accident && !i.damaged ? '<span class="tag dmg">accidenté</span>' : "")
+    + (i.suspect && !i.damaged ? '<span class="tag chk">prix très bas : à vérifier</span>' : "");
+  const keys = [...i.options.filter((o) => !BODY_KEYS.includes(o)), ...i.flags.filter((f) => f !== "accident")];
+  const shown = keys.slice(0, 6).map((o) => `<span class="tag">${esc(labelOf(o))}</span>`).join("");
+  const more = keys.length > 6 ? `<span class="tag more" title="${esc(keys.slice(6).map(labelOf).join(", "))}">+${keys.length - 6}</span>` : "";
+  const on = WATCHED.has(String(i.id));
+  const deal = i.gap_pct != null && i.gap_pct <= -8 && !i.suspect && !i.damaged && !i.accident;
+  const link = /^https?:\/\//.test(i.url || "") ? i.url : null;
+  const sub = [flagOf(i.country), esc(i.segment), i.version && i.version !== i.segment.split(" ")[0] ? esc(i.version) : "", `${i.month ? String(i.month).padStart(2, "0") + "/" : ""}${i.year}`, `${nf.format(i.km)} km`, i.power_ps ? `${i.power_ps} ch` : "", i.color ? esc(i.color) : ""].filter(Boolean).join(" · ");
+  return `<article class="lcard${deal ? " deal" : ""}${i.damaged || i.accident ? " dmgcard" : ""}">
+    <span class="lc-color" style="background:${COLOR_HEX[i.color] || "var(--line)"}" title="${esc(i.color || "couleur inconnue")}"></span>
+    <div class="lc-main">
+      <div class="lc-title">${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">${esc(i.title)}</a>` : esc(i.title)}</div>
+      <div class="lc-sub">${sub}${i.model_conf < 0.7 ? " · modèle incertain" : ""}</div>
+      <div class="lc-tags">${warn}${shown}${more}</div>
+    </div>
+    <div class="lc-price">
+      <div class="lc-p">${money(i.price, cur)}</div>
+      ${cur === "chf" ? `<div class="lc-s muted">≈ ${money(i.price_eur, "eur")}</div>` : ""}
+      <div class="lc-s muted">cote ${money(i.expected_eur, "eur")}</div>
+      ${gauge(i.gap_pct)}
+      <div class="lc-gap ${i.gap_pct == null ? "" : i.gap_pct < 0 ? "good" : "bad"}">${i.gap_pct == null ? "—" : pct(i.gap_pct)}${deal ? ' <span class="tag deal">bonne affaire</span>' : ""}</div>
+    </div>
+    <div class="rail"><div class="rail-btns">
+      ${link ? `<a class="mini linkbtn" href="${esc(link)}" target="_blank" rel="noopener noreferrer">↗ Voir l'annonce</a>` : ""}
+      ${calcButtons(i.country === "CH" ? "Comparer à l'import DE" : "Import en Suisse", i.id, `<button type="button" class="mini follow${on ? " on" : ""}" data-follow="${esc(i.id)}">${on ? "★ Suivie" : "☆ Suivre"}</button>`)}
+    </div></div></article>`;
+}
+let listSeq = 0;
+async function loadListings(more = false) {
+  const seq = ++listSeq, PAGE = 24;
+  if (!more) LF.offset = 0;
+  const [r, wl] = await Promise.all([api("/api/listings?" + listParams(more ? LF.offset : 0, PAGE)), api("/api/watch?light=1").catch(() => [])]);
+  if (seq !== listSeq) return;                           // une requête plus récente a été lancée
+  WATCHED.clear(); wl.forEach((w) => { if (w.spec?.kind === "listing") WATCHED.set(String(w.spec.listing_id), w.id); });
+  if (!more) LISTINGS.clear();
+  r.items.forEach((i) => LISTINGS.set(String(i.id), i));
+  LF.offset += r.items.length; LF.total = r.total;
+  renderFacets(r.facets); renderActive();
+  $("#l-count").innerHTML = `<b>${nf.format(r.total)}</b> annonce${r.total > 1 ? "s" : ""}`;
+  const html = r.items.map(cardHtml).join("");
+  if (more) $("#l-cards").insertAdjacentHTML("beforeend", html);
+  else $("#l-cards").innerHTML = html || `<div class="empty"><b>Aucune annonce</b><br>Essayez d'élargir les filtres${$("#l-hide-damaged").checked ? " ou d'inclure les véhicules accidentés" : ""}.</div>`;
+  $("#l-more").hidden = LF.offset >= r.total;
+}
+$("#l-more").addEventListener("click", () => loadListings(true));
+let lt;
+const later = () => { clearTimeout(lt); lt = setTimeout(loadListings, 350); };
+["#l-sort", "#l-hide-damaged", "#l-deals", "#l-body"].forEach((s) => $(s).addEventListener("change", () => loadListings()));
+["#l-yearmin", "#l-yearmax", "#l-kmmax", "#l-pricemax", "#l-q"].forEach((s) => $(s).addEventListener("input", later));
+["#l-options", "#l-bodies", "#l-flags"].forEach((s) => $(s).addEventListener("change", () => loadListings()));
+$("#l-family").addEventListener("change", () => { fillListGens(); renderListingChips(); fillBodySelect(); loadListings(); });
+$("#l-gen").addEventListener("change", () => { renderListingChips(); fillBodySelect(); loadListings(); });
+$("#l-reset").addEventListener("click", () => {
+  LF.market = ""; LF.color = "";
+  for (const id of ["#l-q", "#l-yearmin", "#l-yearmax", "#l-kmmax", "#l-pricemax"]) $(id).value = "";
+  $("#l-family").value = ""; $("#l-gen").value = ""; $("#l-body").value = ""; $("#l-sort").value = "gap";
+  $("#l-hide-damaged").checked = true; $("#l-deals").checked = false;
+  $$("#l-options input, #l-bodies input, #l-flags input").forEach((i) => (i.checked = false));
+  fillListGens(); renderListingChips(); fillBodySelect(); loadListings();
+});
+$("#l-toggle").addEventListener("click", () => $("#lst-filters").classList.toggle("open"));
 
 // ---------- calculateurs intégrés : l'iframe prend la hauteur de son contenu (pas de défilement dans le cadre)
 window.addEventListener("message", (e) => {
@@ -358,7 +462,7 @@ async function calcAction(act, item, btn) {
   } catch (err) { toast("Erreur : " + err.message); }
   finally { if (btn) { btn.disabled = false; btn.textContent = label; } }
 }
-$("#ltable").addEventListener("click", async (e) => {
+$("#l-cards").addEventListener("click", async (e) => {
   const f = e.target.closest("button[data-follow]");
   if (f) {
     const item = LISTINGS.get(f.dataset.follow); if (!item) return;
