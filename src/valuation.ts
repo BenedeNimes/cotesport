@@ -19,6 +19,8 @@ export interface Row {
   powerPs: number | null; opts: Set<string>; conds: Set<string>; firstSeen: Date | null; publishedAt: Date | null;
   active: boolean; isDemo: boolean; modelConf: number | null; color?: string | null; colorName?: string | null;
   age: number; ch: 0 | 1; _t?: Date | null;
+  /** épave / défectueux / accidenté grave (détecté dans le texte) : exclu de la cote */
+  damaged?: boolean;
 }
 
 export function decimalYear(d = new Date()): number {
@@ -165,8 +167,8 @@ export class ValuationService {
     this.seg.clear(); this.fam.clear();
   }
 
-  segmentRows = (segment: string) => this.rows.filter((r) => r.segment === segment);
-  familyRows = (family: string) => this.rows.filter((r) => r.family === family);
+  segmentRows = (segment: string) => this.rows.filter((r) => r.segment === segment && !r.damaged);
+  familyRows = (family: string) => this.rows.filter((r) => r.family === family && !r.damaged);
 
   segFit(segment: string): Fit | null {
     if (!this.seg.has(segment)) {

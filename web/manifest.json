@@ -4,7 +4,7 @@
   "description": "Cote des véhicules sportifs, marchés suisse et allemand",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#14181f",
-  "theme_color": "#14181f",
+  "background_color": "#0d1015",
+  "theme_color": "#0d1015",
   "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
 }

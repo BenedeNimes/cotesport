@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#14181f">
+<meta name="theme-color" content="#0d1015">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
@@ -12,7 +12,7 @@
 </head>
 <body>
 <header class="top">
-  <div class="brand"><span class="logo">◢</span> CoteSport <small id="fxline"></small></div>
+  <div class="brand"><svg class="logo-mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M8 52 L20 18 L30 18 L18 52Z" fill="#ffb703"/><path d="M22 52 L34 18 L44 18 L32 52Z" fill="#fb5607"/><path d="M36 52 L48 18 L58 18 L46 52Z" fill="#e63946"/></svg><span class="brand-name">CoteSport</span> <small id="fxline"></small></div>
   <nav id="tabs">
     <button data-tab="market" class="on">Marché</button>
     <button data-tab="estimate">Estimer</button>
@@ -33,8 +33,9 @@
     <div class="cards" id="kpis"></div>
     <div class="panel">
       <div class="panel-h"><h2>Segments</h2>
+        <div class="actions"><span id="mk-updated" class="muted small"></span><button type="button" id="btn-refresh" class="ghost" title="Recharger les données du marché">↻ Actualiser</button>
         <label class="inline">Marché
-          <select id="mk-currency"><option value="eur">EUR</option><option value="chf">CHF</option></select></label>
+          <select id="mk-currency"><option value="eur">EUR</option><option value="chf">CHF</option></select></label></div>
       </div>
       <div class="scroll"><table id="segtable"><thead><tr>
         <th data-sort="segment">Segment</th><th data-sort="n" class="num">Annonces</th><th data-sort="median_age" class="num">Âge méd.</th>
@@ -97,33 +98,35 @@
         <select id="l-family"><option value="">Tous les modèles</option></select>
         <select id="l-market"><option value="">CH + DE</option><option value="CH">Suisse</option><option value="DE">Allemagne</option></select>
         <select id="l-sort"><option value="gap">Meilleures affaires d'abord</option><option value="price">Prix</option><option value="recent">Plus récentes</option><option value="km">Kilométrage</option></select>
+        <select id="l-body" hidden><option value="">Toutes carrosseries</option></select>
         <input id="l-q" placeholder="Rechercher (ex. Competition)">
         <select id="l-color"><option value="">Toutes couleurs</option></select>
         <input id="l-yearmin" type="number" min="2000" max="2035" placeholder="Année min">
         <input id="l-kmmax" type="number" min="0" step="1000" placeholder="Km max">
       </div>
+      <label class="switch"><input type="checkbox" id="l-hide-damaged" checked><span>Masquer les véhicules accidentés, défectueux ou épaves</span></label>
       <details class="more"><summary>Options exigées <span id="l-opt-n" class="muted"></span></summary>
         <div id="l-options" class="chips"></div><div id="l-bodies" class="chips"></div><div id="l-flags" class="chips"></div></details>
       <div class="scroll"><table id="ltable"><thead><tr><th>Annonce</th><th class="num">Année</th><th class="num">Km</th>
-        <th class="num">Prix</th><th class="num">Cote</th><th class="num">Écart</th></tr></thead><tbody></tbody></table></div>
+        <th class="num">Prix</th><th class="num">Cote</th><th class="num">Écart</th><th class="rail-h">Actions</th></tr></thead><tbody></tbody></table></div>
       <p class="hint" id="l-count"></p>
     </div>
   </section>
 
   <!-- CRÉDIT / LEASING -->
   <section id="tab-leasing" class="tab">
-    <iframe id="fr-leasing" class="calc" data-src="/leasing" title="Comparateur crédit vs leasing"></iframe>
+    <iframe id="fr-leasing" class="calc" data-src="/leasing" title="Comparateur crédit vs leasing" scrolling="no"></iframe>
   </section>
 
   <!-- IMPORT DE ↔ CH -->
   <section id="tab-import" class="tab">
-    <iframe id="fr-import" class="calc" data-src="/import" title="Comparateur achat en Suisse ou import d'Allemagne"></iframe>
+    <iframe id="fr-import" class="calc" data-src="/import" title="Comparateur achat en Suisse ou import d'Allemagne" scrolling="no"></iframe>
   </section>
 
   <!-- SUIVI -->
   <section id="tab-watch" class="tab">
-    <div class="panel"><div class="panel-h"><h2>Véhicules suivis</h2></div>
-      <div id="watchlist"><p class="hint">Rien à suivre pour l'instant. Utilisez « Suivre ce véhicule » dans l'onglet Estimer.</p></div></div>
+    <div class="panel"><div class="panel-h"><h2>Suivi</h2></div>
+      <div id="watchlist"><p class="hint">Rien à suivre pour l'instant. Utilisez ☆ dans la liste des annonces, ou « Suivre ce véhicule » dans l'onglet Estimer.</p></div></div>
   </section>
 
   <!-- SOURCES -->

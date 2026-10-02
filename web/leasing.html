@@ -68,6 +68,25 @@ select{width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:8
 #leasingBreak .row.total{border-top-color:var(--leasing);background:var(--leasing-tint);}
 .note{font-size:.73rem;color:var(--muted);margin-top:8px;padding-top:14px;border-top:1px solid var(--border);}
 </style>
+<style id="embed-css">
+/* Mode intégré dans CoteSport : pas de cadre, fond transparent, hauteur gérée par l'application hôte */
+html.embed{background:transparent}
+html.embed body{background:transparent}
+html.embed .topbar{display:none}
+html.embed .wrap{max-width:none;padding:4px 0 28px}
+html.embed .output{position:static!important;max-height:none!important;overflow:visible!important}
+html.embed h1{font-size:1.15rem}
+</style>
+<script>
+(function(){
+  if(window.parent===window)return;
+  var de=document.documentElement;de.classList.add('embed');
+  var name=location.pathname.replace(/\W/g,'')||'calc',last=0;
+  function post(){var h=Math.ceil(de.getBoundingClientRect().height);if(Math.abs(h-last)>1){last=h;parent.postMessage({cotesportCalcHeight:h,name:name},location.origin);}}
+  window.addEventListener('load',post);window.addEventListener('resize',post);
+  if(window.ResizeObserver)new ResizeObserver(post).observe(de);else setInterval(post,500);
+})();
+</script>
 </head>
 <body>
 <div class="topbar" id="topbar"></div>

@@ -4,7 +4,7 @@ import { waitUntil } from "@neon/functions";
 import { db, type Sql } from "./db";
 import { STATUS, isRunning, requestStop, reclassifyAll, refreshStats, runCycle, type CollectConfig } from "./collector";
 import { median } from "./linalg";
-import { catalogPublic } from "./options";
+import { catalogPublic, isDamaged } from "./options";
 import { COLOR_GROUPS } from "./colors";
 import { reference } from "./modelid";
 import { REGISTRY, DEFAULT_SOURCES } from "./sources";
@@ -45,13 +45,14 @@ async function service(sql: Sql): Promise<ValuationService> {
   if (svc && key === svcKey) return svc;
   const raw = await sql`
     SELECT id, source, url, title, country, family, generation, version, segment, price, price_eur, currency, year, month, km, power_ps,
-           options, flags, first_seen, published_at, active, model_conf, color, color_name
+           options, flags, first_seen, published_at, active, model_conf, color, color_name, description
     FROM listings WHERE active AND segment IS NOT NULL AND price_eur > 0 AND year IS NOT NULL AND km IS NOT NULL`;
   const rows: Row[] = raw.map((r) => ({
     id: r.id, source: r.source, url: r.url, title: r.title ?? "", country: r.country, family: r.family, generation: r.generation,
     version: r.version ?? "", segment: r.segment, priceEur: r.price_eur, price: r.price, currency: r.currency, year: r.year, month: r.month,
     km: r.km, powerPs: r.power_ps, opts: new Set<string>(r.options ?? []), conds: new Set<string>(r.flags ?? []),
     firstSeen: r.first_seen ? new Date(r.first_seen) : null, publishedAt: r.published_at ? new Date(r.published_at) : null,
+    damaged: isDamaged(`${r.title ?? ""}\n${r.description ?? ""}`) || (r.flags ?? []).includes("damaged"),
     active: r.active, isDemo: false, modelConf: r.model_conf, color: r.color, colorName: r.color_name, age: ageOf(r.year, r.month) ?? 0, ch: r.country === "CH" ? 1 : 0,
   }));
   const fx = (await sql`SELECT chf_eur FROM fx_rates ORDER BY day DESC LIMIT 1`)[0]?.chf_eur ?? null;
@@ -143,13 +144,28 @@ export async function handle(req: Request): Promise<Response> {
     if (path === "/api/listings" && req.method === "GET") return json(await listings(sql, url));
 
     if (path === "/api/watch" && req.method === "GET") {
-      const s = await service(sql);
       const rows = await sql`SELECT id, label, params, created_at FROM watch ORDER BY id DESC`;
-      return json(rows.map((r) => {
+      if (url.searchParams.get("light") === "1") return json(rows.map((r) => ({ id: r.id, spec: r.params })));
+      const s = await service(sql);
+      const out = [];
+      for (const r of rows) {
+        if (r.params?.kind === "listing") {
+          const lid = Number(r.params.listing_id);
+          const l = (await sql`SELECT id, title, url, price, price_eur, currency, country, year, km, active, removed_at, first_seen, last_seen FROM listings WHERE id = ${lid}`)[0] ?? null;
+          const hist = l ? await sql`SELECT price, seen_at FROM price_history WHERE listing_id = ${lid} ORDER BY seen_at` : [];
+          const row = s.rows.find((x) => x.id === lid);
+          const sc = row ? s.scoreListings([row]).get(lid) ?? null : null;
+          out.push({ id: r.id, name: r.label, spec: r.params, created_at: r.created_at,
+            listing: l && { title: l.title, url: l.url, price: l.price, currency: l.currency, country: l.country, year: l.year, km: l.km, active: l.active, removed_at: l.removed_at,
+              gap_pct: sc?.gap_pct ?? null, expected_eur: sc?.expected_eur ?? null, damaged: !!row?.damaged,
+              history: hist.map((h) => ({ price: h.price, at: h.seen_at })) } });
+          continue;
+        }
         let est: unknown = {};
         try { est = s.estimate(r.params); } catch { /* suivi sans estimation */ }
-        return { id: r.id, name: r.label, spec: r.params, created_at: r.created_at, estimate: est };
-      }));
+        out.push({ id: r.id, name: r.label, spec: r.params, created_at: r.created_at, estimate: est });
+      }
+      return json(out);
     }
     if (path === "/api/watch" && req.method === "POST") {
       const b = (await req.json().catch(() => null)) as { name?: string; spec?: unknown } | null;
@@ -189,6 +205,7 @@ async function summary(sql: Sql) {
   const last = (await sql`SELECT max(finished_at) AS m FROM runs WHERE status IN ('ok','partial')`)[0].m;
   const seg = new Map<string, { family: string; generation: string; ch: number[]; de: number[]; km: number[]; age: number[] }>();
   for (const r of s.rows) {
+    if (r.damaged) continue;
     const e = seg.get(r.segment) ?? seg.set(r.segment, { family: r.family, generation: r.generation, ch: [], de: [], km: [], age: [] }).get(r.segment)!;
     (r.country === "CH" ? e.ch : e.de).push(r.priceEur); e.km.push(r.km); e.age.push(r.age);
   }
@@ -233,6 +250,11 @@ async function listings(sql: Sql, url: URL) {
   // toutes les options / tous les indicateurs cochés doivent être présents
   if (wantOpts.length) rows = rows.filter((r) => wantOpts.every((k) => r.opts.has(k)));
   if (wantFlags.length) rows = rows.filter((r) => wantFlags.every((k) => r.conds.has(k)));
+  // carrosserie « classique » = ni Touring, ni Cabriolet, ni Gran Coupé
+  if (q.get("body") === "standard") rows = rows.filter((r) => !r.opts.has("body_touring") && !r.opts.has("body_convertible") && !r.opts.has("body_gran_coupe"));
+  // par défaut on masque épaves / défectueux / accidentés ; hide_damaged=0 les réaffiche
+  const hideDamaged = q.get("hide_damaged") !== "0";
+  if (hideDamaged) rows = rows.filter((r) => !r.damaged && !r.conds.has("accident"));
   const scores = s.scoreListings(rows);
   const out = rows.map((r) => {
     const sc = scores.get(r.id);
@@ -241,10 +263,14 @@ async function listings(sql: Sql, url: URL) {
       currency: r.currency, color: r.color ?? null, color_name: r.colorName ?? null, price_eur: Math.round(r.priceEur), options: [...r.opts].sort(), flags: [...r.conds].sort(),
       first_seen: r.firstSeen?.toISOString() ?? null, source: r.source, demo: false,
       expected_eur: sc?.expected_eur ?? null, gap_pct: sc?.gap_pct ?? null, model_conf: r.modelConf,
+      damaged: !!r.damaged, accident: r.conds.has("accident"),
+      // prix très inférieur à la cote : le plus souvent un défaut non signalé, à vérifier avant de s'emballer
+      suspect: sc != null && sc.gap_pct < -30,
     };
   });
   const keyf: Record<string, (a: any, b: any) => number> = {
-    gap: (a, b) => (a.gap_pct == null ? 1 : b.gap_pct == null ? -1 : a.gap_pct - b.gap_pct),
+    gap: (a, b) => (a.damaged !== b.damaged ? (a.damaged ? 1 : -1) : a.suspect !== b.suspect ? (a.suspect ? 1 : -1)
+      : a.gap_pct == null ? 1 : b.gap_pct == null ? -1 : a.gap_pct - b.gap_pct),
     price: (a, b) => a.price_eur - b.price_eur,
     recent: (a, b) => String(b.first_seen ?? "").localeCompare(String(a.first_seen ?? "")),
     km: (a, b) => (a.km ?? 0) - (b.km ?? 0),

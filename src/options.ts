@@ -116,3 +116,24 @@ export function extract(textIn: string): [string[], string[]] {
 export function catalogPublic() {
   return Object.entries(CATALOG).map(([key, v]) => ({ key, label: v.label, kind: v.kind, min_year: v.minYear ?? null }));
 }
+
+
+// --- véhicules accidentés / défectueux -------------------------------------------------------------------------------
+// « damaged » : épave, non roulant, moteur ou boîte HS, retourné, véhicule pour pièces / export… Ces annonces sont des prix
+// d'épave, pas des prix de marché : elles sont exclues du calcul de la cote et masquables dans la liste.
+const NEG_DAMAGE = /\b(kein(e|en)?|ohne|sans|no|nicht|pas de|senza)\s+(\w+\s+)?(unfall(schaden|fahrzeug)?|schaden|sch[äa]den|defekt(e)?|accident|damage|motorschaden|totalschaden)/gi;
+const DAMAGED = new RegExp([
+  "unfall(fahrzeug|wagen|auto)", "rund herum defekt", "[üu]berschlag", "[üu]berschlagen", "totalschaden", "wirtschaftlicher totalschaden",
+  "motor(schaden|defekt)", "getriebe(schaden|defekt)", "motor (ist )?defekt", "(?<![a-zäöü])defekt(e[rsmn]?)?(?![a-zäöü])", "besch[äa]digt", "bastler", "ersatzteil(spender|tr[äa]ger)", "schlachtfest",
+  "nicht (mehr )?(fahr(bereit|t[üu]chtig)|angemeldet|startf[äa]hig)", "reparaturbed[üu]rftig", "nicht rollf[äa]hig", "export(fahrzeug)?\\b.*(defekt|unfall)", "bergungs?fahrzeug",
+  "[ée]pave", "accident[ée]e?\\b(?!\\s*free)", "non roulant", "hors service", "moteur (hs|cass[ée]|d[ée]fectueux)", "pour pi[èe]ces", "d[ée]fectueux", "endommag[ée]",
+  "incidentat[ao]", "sinistrat[ao]", "motore (rotto|difettoso)", "non marciante",
+  "wreck(ed)?", "salvage", "non[- ]?runner", "for parts", "spares or repair", "crash(ed)?\\b", "totaled", "engine (failure|damage|blown)", "blown (engine|motor)",
+].join("|"), "i");
+
+/** Texte d'annonce → véhicule accidenté / défectueux ? (les négations « unfallfrei », « kein Unfall »… sont neutralisées) */
+export function isDamaged(textIn: string): boolean {
+  if (!textIn) return false;
+  const text = textIn.replace(/_/g, " ").replace(NEG_DAMAGE, " ").replace(/unfallfrei|schadenfrei|schadensfrei|schadenfreigabe|accident[- ]?free|sans accident|d[ée]faut de/gi, " ");
+  return DAMAGED.test(text);
+}

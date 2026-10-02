@@ -25,3 +25,5 @@ Suivi de la cote des véhicules sportifs (v1 : BMW M / M Performance) sur les ma
 - Onglets « Crédit / leasing » et « Import DE ↔ CH » (pages `web/leasing.html`, `web/import.html`, préremplies depuis les annonces via le hash d'URL). Les colonnes/choix Suisse n'apparaissent que s'il existe des annonces suisses.
 - Hébergement : Cloudflare Workers + assets statiques (`wrangler.jsonc`, `worker/index.js` proxifie `/api/*` vers la fonction Neon). Déploiement automatique à chaque push via Workers Builds (build : aucun ; deploy : `npx wrangler deploy`). Netlify n'est plus utilisé.
 - Backend : `npm run release` régénère `bundle/index.mjs` ; mettre à jour `BUNDLE_SHA256` sur la fonction Neon après chaque release.
+- Les annonces accidentées / défectueuses / épaves sont détectées dans le texte (`isDamaged`, src/options.ts), exclues du calcul de la cote et masquées par défaut dans la liste (case à décocher). Un prix > 30 % sous la cote est signalé « à vérifier ».
+- Le suivi accepte des annonces (☆) : prix courant, historique, retrait de l'annonce.
