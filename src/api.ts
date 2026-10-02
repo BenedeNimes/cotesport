@@ -81,7 +81,8 @@ function authorized(req: Request): boolean {
   const tok = process.env.APP_TOKEN;
   if (!tok) return true;
   const got = req.headers.get("x-token") || (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
-  return got === tok;
+  const norm = (v: string) => (/^\d+$/.test(v) ? v.replace(/^0+(?=\d)/, "") : v); // un code numérique « 0502 » peut perdre son zéro initial côté configuration
+  return got === tok || norm(got) === norm(tok);
 }
 
 // --------------------------------------------------------------------------- routes
