@@ -3,3 +3,6 @@ dist/
 .env
 *.zip
 .DS_Store
+.apptoken
+.wrangler/
+.dev.vars

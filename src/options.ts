@@ -1,6 +1,11 @@
 // Dictionnaire d'options et d'indicateurs d'état, détectés dans le texte des annonces (FR / DE / EN).
 
-export interface OptDef { label: string; kind: "option" | "cond"; patterns: string[] }
+/**
+ * kind : « option » (équipement), « body » (carrosserie / transmission : une caractéristique du modèle, pas un équipement) ou « cond » (état / historique).
+ * sign : effet attendu sur le prix (1 = hausse, -1 = baisse, 0 = indéterminé). Un effet mesuré de signe contraire est rejeté (voir valuation.ts).
+ * minYear : première année de disponibilité de l'équipement ; il n'est pas proposé pour une génération qui s'arrête avant.
+ */
+export interface OptDef { label: string; kind: "option" | "body" | "cond"; patterns: string[]; sign?: 1 | -1 | 0; minYear?: number }
 
 export const CATALOG: Record<string, OptDef> = {
   carbon_roof: { label: "Toit carbone", kind: "option", patterns: ["carbon[- ]?dach", "toit (en )?carbone", "carbon roof", "carbon[- ]?roof"] },
@@ -53,10 +58,10 @@ export const CATALOG: Record<string, OptDef> = {
   forged_wheels: { label: "Jantes M forgées", kind: "option", patterns: ["forged", "geschmiedet", "schmiede(r[äa]der|felgen)", "jantes? forg[ée]es?", "cerchi forgiati"] },
   m_brakes: { label: "Freins M Sport / Compound", kind: "option", patterns: ["m[- ]?sportbremse", "m[- ]?compound", "compound[- ]?brems", "freins? m (sport|compound)", "m sport brakes?"] },
   active_steering: { label: "Direction intégrale active", kind: "option", patterns: ["integral[- ]?aktivlenkung", "integral active steering", "direction int[ée]grale", "hinterachslenkung"] },
-  xdrive: { label: "Transmission intégrale xDrive", kind: "option", patterns: ["x[- ]?drive"] },
-  body_touring: { label: "Carrosserie Touring (break)", kind: "option", patterns: ["\\btouring\\b"] },
-  body_convertible: { label: "Carrosserie Cabriolet", kind: "option", patterns: ["cabrio(let)?", "convertible", "\\bcabrio\\b", "decapotable", "d[ée]capotable"] },
-  body_gran_coupe: { label: "Carrosserie Gran Coupé", kind: "option", patterns: ["gran ?coup[ée]"] },
+  xdrive: { label: "Transmission intégrale xDrive", kind: "body", patterns: ["x[- ]?drive"] },
+  body_touring: { label: "Carrosserie Touring (break)", kind: "body", patterns: ["\\btouring\\b"] },
+  body_convertible: { label: "Carrosserie Cabriolet", kind: "body", patterns: ["cabrio(let)?", "convertible", "\\bcabrio\\b", "decapotable", "d[ée]capotable"] },
+  body_gran_coupe: { label: "Carrosserie Gran Coupé", kind: "body", patterns: ["gran ?coup[ée]"] },
   sound_system: { label: "Système audio haut de gamme", kind: "option", patterns: ["hifi[- ]?(system|lautsprecher)?\\s*(professional|prof\\.?)", "hifi professional", "hi-?fi pro", "audio(system)? (haut de gamme|premium)", "premium sound"] },
   // --- indicateurs d'état / historique ---
   nonsmoker: { label: "Non-fumeur", kind: "cond", patterns: ["nichtraucher", "non[- ]?fumeur", "non[- ]?smoker", "no smoking", "non fumatore"] },
@@ -69,11 +74,25 @@ export const CATALOG: Record<string, OptDef> = {
   tuned: { label: "Modifié / tuning", kind: "cond", patterns: ["tuning", "chip ?tuning", "stage ?[123]", "downpipe", "remap", "akrapovi[cč]", "capristo", "eisenmann", "\\bdinan\\b", "\\bjb4\\b", "leistungssteigerung", "reprogramm", "\\bhre\\b", "\\bkw suspension", "schnitzer", "\\bac schnitzer", "\\bg-power\\b", "manhart"] },
 };
 
+// Effet attendu sur le prix, quand il n'est pas « hausse » (valeur par défaut des équipements et des états favorables).
+const SIGN_OVERRIDES: Record<string, 1 | -1 | 0> = {
+  accident: -1,
+  tuned: 0, manual: 0, tow_bar: 0, parking_heater: 0, winter_tires: 0, individual: 0, m_performance_parts: 0, competition_package: 0, track_package: 0,
+  xdrive: 0, body_touring: 0, body_convertible: 0, body_gran_coupe: 0,
+};
+for (const [k, v] of Object.entries(CATALOG)) v.sign = SIGN_OVERRIDES[k] ?? 1;
+
+// Équipements qui n'existent pas avant une certaine année de première immatriculation.
+const MIN_YEAR: Record<string, number> = { laser: 2015, display_key: 2020, wireless_charging: 2017, carplay: 2017, driving_assist_pro: 2017, surround_view: 2013 };
+for (const [k, y] of Object.entries(MIN_YEAR)) if (CATALOG[k]) CATALOG[k].minYear = y;
+
+export const expectedSign = (key: string): 1 | -1 | 0 => CATALOG[key]?.sign ?? 0;
+
 const COMPILED: Record<string, RegExp[]> = Object.fromEntries(
   Object.entries(CATALOG).map(([k, v]) => [k, v.patterns.map((p) => new RegExp(p, "i"))]),
 );
 
-export const OPT_KEYS = Object.entries(CATALOG).filter(([, v]) => v.kind === "option").map(([k]) => k);
+export const OPT_KEYS = Object.entries(CATALOG).filter(([, v]) => v.kind !== "cond").map(([k]) => k);
 export const COND_KEYS = ["accident_free", "service_history", "first_owner", "warranty", "accident", "tuned", "nonsmoker", "recent_inspection"];
 
 /** Retourne [options, indicateurs d'état] détectés dans le texte. */
@@ -84,7 +103,7 @@ export function extract(textIn: string): [string[], string[]] {
   const opts: string[] = [];
   const conds: string[] = [];
   for (const [key, regs] of Object.entries(COMPILED)) {
-    if (regs.some((r) => r.test(text))) (CATALOG[key].kind === "option" ? opts : conds).push(key);
+    if (regs.some((r) => r.test(text))) (CATALOG[key].kind === "cond" ? conds : opts).push(key);
   }
   // « sans accident » l'emporte sur « accident »
   if (conds.includes("accident_free") && conds.includes("accident")) {
@@ -95,5 +114,5 @@ export function extract(textIn: string): [string[], string[]] {
 }
 
 export function catalogPublic() {
-  return Object.entries(CATALOG).map(([key, v]) => ({ key, label: v.label, kind: v.kind }));
+  return Object.entries(CATALOG).map(([key, v]) => ({ key, label: v.label, kind: v.kind, min_year: v.minYear ?? null }));
 }

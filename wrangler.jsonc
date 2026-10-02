@@ -1,0 +1,16 @@
+{
+  // Publication sur Cloudflare Workers (remplace Netlify). L'application est statique (web/) ; seule /api/* passe par le Worker.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cotesport",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./web",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/healthz"]
+  },
+  "vars": {
+    // Fonction Neon (API, collecte planifiée, accès à la base). Inchangée.
+    "API_ORIGIN": "https://br-patient-night-b1iegx01-cotesport.compute.c-5.eu-central-1.aws.neon.tech"
+  }
+}

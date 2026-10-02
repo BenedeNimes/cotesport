@@ -1,6 +1,6 @@
 // Mise en cache de la coquille de l'application uniquement ; les données (API) passent toujours par le réseau.
-const CACHE = "cotesport-shell-v5";
-const SHELL = ["/", "/style.css", "/app.js", "/manifest.json", "/icon.svg"];
+const CACHE = "cotesport-shell-v6";
+const SHELL = ["/", "/style.css", "/app.js", "/manifest.json", "/icon.svg", "/leasing", "/import"];
 self.addEventListener("install", (e) => e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())));
 self.addEventListener("activate", (e) => e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())));
 self.addEventListener("fetch", (e) => {

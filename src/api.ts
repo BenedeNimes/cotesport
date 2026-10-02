@@ -18,7 +18,7 @@ export const collectConfig = (): CollectConfig => ({
   staleAfterDays: Number(env("STALE_AFTER_DAYS", "3")),
   fxFallback: Number(env("FX_CHF_EUR", "1.07")),
   sources: (() => {
-    const alias: Record<string, string> = { as24de: "autoscout24_de", as24ch: "autoscout24_ch" };
+    const alias: Record<string, string> = { as24de: "autoscout24_de", as24ch: "autoscout24_ch", autolina: "autolina_ch" };
     const l = env("SOURCES", "").split(",").map((s) => s.trim()).map((s) => alias[s] ?? s).filter((s) => REGISTRY[s]);
     return l.length ? l : DEFAULT_SOURCES; // jamais de liste vide : on retombe sur toutes les sources connues
   })(),
@@ -100,7 +100,7 @@ export async function handle(req: Request): Promise<Response> {
   }
   if (path === "/healthz") return json({ ok: true, app: "cotesport" });
   if (req.method === "GET" && !path.startsWith("/api/")) {
-    const a = WEB[path === "/" ? "/index.html" : path];
+    const a = WEB[path === "/" ? "/index.html" : ({ "/leasing": "/leasing.html", "/import": "/import.html" } as Record<string, string>)[path] ?? path];
     if (a) return new Response(a.b, { headers: { "content-type": a.t, "cache-control": path === "/sw.js" ? "no-cache" : "public, max-age=300" } });
   }
 
@@ -115,7 +115,11 @@ export async function handle(req: Request): Promise<Response> {
   try {
     if (path === "/api/config" && req.method === "GET") {
       const ref = reference().BMW.families;
+      const sv = await service(sql);
+      const compat: Record<string, { options: string[]; conds: string[] }> = {};
+      for (const [f, fd] of Object.entries(ref)) for (const g of fd.generations) compat[`${f} ${g.code}`] = sv.compat(f, g.code, g.years[1]);
       return json({
+        compat,
         auth_required: !!process.env.APP_TOKEN,
         families: Object.fromEntries(Object.entries(ref).map(([f, fd]) => [f, fd.generations.map((g) => ({ code: g.code, years: g.years, versions: g.versions }))])),
         options: catalogPublic(), colors: COLOR_GROUPS,
@@ -134,7 +138,7 @@ export async function handle(req: Request): Promise<Response> {
     }
 
     let m = path.match(/^\/api\/options\/([^/]+)$/);
-    if (m && req.method === "GET") return json((await service(sql)).optionsRanking(decodeURIComponent(m[1])));
+    if (m && req.method === "GET") return json((await service(sql)).optionsRanking(decodeURIComponent(m[1]), url.searchParams.get("generation") || undefined));
 
     if (path === "/api/listings" && req.method === "GET") return json(await listings(sql, url));
 

@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Crédit vs leasing — CoteSport</title>
+<style>
+:root{
+  --bg:#f5f6f8;--card:#ffffff;--text:#1a1c20;--muted:#545b66;--border:#d5d9de;
+  --credit:#0ea5b5;--credit-ink:#0b7a86;--credit-soft:#bfeef2;--credit-tint:#eafbfc;
+  --leasing:#e8762c;--leasing-ink:#b85a1a;--leasing-soft:#fbd4ae;--leasing-tint:#fef2e6;
+  --good:#14793f;--good-soft:#bfe8cf;--warn:#c23b3b;--warn-soft:#f6c4bd;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#15171a;--card:#1f2226;--text:#eef0f2;--muted:#9aa2ad;--border:#3d4148;--credit-ink:#2ec4d6;--credit-soft:#0f4f56;--credit-tint:#123338;--leasing-ink:#f0975a;--leasing-soft:#5c3418;--leasing-tint:#2e2015;--good:#3ecf82;--good-soft:#164d2e;--warn:#ff6b5f;--warn-soft:#5a231d;}}
+:root[data-theme="dark"]{--bg:#15171a;--card:#1f2226;--text:#eef0f2;--muted:#9aa2ad;--border:#3d4148;--credit-ink:#2ec4d6;--credit-soft:#0f4f56;--credit-tint:#123338;--leasing-ink:#f0975a;--leasing-soft:#5c3418;--leasing-tint:#2e2015;--good:#3ecf82;--good-soft:#164d2e;--warn:#ff6b5f;--warn-soft:#5a231d;}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.45;}
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--card);border-bottom:1px solid var(--border);padding:9px 16px;font-size:.85rem;font-weight:600;text-align:center;}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 48px;}
+h1{font-size:1.35rem;margin:0 0 4px;}
+.sub{color:var(--muted);font-size:.88rem;margin:0 0 20px;}
+.layout{display:grid;grid-template-columns:1.15fr 1fr;gap:20px;align-items:start;}
+@media (max-width:880px){.layout{grid-template-columns:1fr}.output{position:static!important;max-height:none!important}}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 14px;}
+details{border:1px solid var(--border);border-radius:12px;margin:0 0 12px;background:var(--card);overflow:hidden;}
+summary{cursor:pointer;padding:13px 16px;font-weight:600;font-size:.88rem;list-style:none;display:flex;justify-content:space-between;align-items:center;}
+summary::-webkit-details-marker{display:none}
+summary::after{content:'+';color:var(--muted);font-size:1.15rem;font-weight:400;}
+details[open] summary::after{content:'−'}
+.dbody{padding:2px 16px 16px;}
+label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:3px;}
+input[type=number]{width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:.92rem;}
+select{width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:.9rem;}
+.checkrow{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--text);margin-top:10px;}
+.checkrow input{width:auto;}
+.hint{font-size:.74rem;color:var(--muted);margin-top:8px;}
+.subhr{border:0;border-top:1px solid var(--border);margin:12px 0 10px;}
+.output{position:sticky;top:calc(env(safe-area-inset-top,0px) + 52px);max-height:calc(100vh - 70px);overflow-y:auto;}
+.verdict{background:var(--card);border:2px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px;text-align:center;transition:border-color .2s;}
+.verdict .big{font-size:1.15rem;font-weight:700;margin-bottom:4px;}
+.verdict .sub2{color:var(--muted);font-size:.78rem;margin-bottom:10px;}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:.76rem;}
+.bar-track{flex:1;background:var(--border);border-radius:6px;height:12px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:6px;}
+.card{background:var(--card);border:2px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:14px;}
+.card:has(#creditBreak){border-color:var(--credit);}
+.card:has(#leasingBreak){border-color:var(--leasing);}
+.card h2{margin:-16px -18px 10px;padding:10px 18px;font-size:1rem;display:flex;align-items:center;gap:8px;border-radius:12px 12px 0 0;}
+.card:has(#creditBreak) h2{background:var(--credit-tint);color:var(--credit-ink);}
+.card:has(#leasingBreak) h2{background:var(--leasing-tint);color:var(--leasing-ink);}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block;box-shadow:0 0 0 3px var(--card);}
+.realpay{background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:12px;}
+.realpay .amt{font-size:1.4rem;font-weight:700;}
+.realpay .lbl{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+.subhead{font-size:.67rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;margin:10px 0 3px;}
+.subhead:first-of-type{margin-top:0;}
+.row{display:flex;justify-content:space-between;gap:8px;font-size:.82rem;padding:3.5px 6px;border-bottom:1px dashed var(--border);border-radius:6px;}
+.row.total{font-weight:700;font-size:1rem;border-bottom:none;margin-top:8px;padding-top:10px;border-top:3px solid var(--border);}
+.row.neg{color:var(--good);background:var(--good-soft);font-weight:600;}
+.row.bad{color:var(--warn);background:var(--warn-soft);font-weight:600;}
+#creditBreak .realpay{background:var(--credit-soft);box-shadow:inset 5px 0 0 var(--credit);}
+#leasingBreak .realpay{background:var(--leasing-soft);box-shadow:inset 5px 0 0 var(--leasing);}
+#creditBreak .realpay .amt{color:var(--credit-ink);}
+#leasingBreak .realpay .amt{color:var(--leasing-ink);}
+#creditBreak .row.total{border-top-color:var(--credit);background:var(--credit-tint);}
+#leasingBreak .row.total{border-top-color:var(--leasing);background:var(--leasing-tint);}
+.note{font-size:.73rem;color:var(--muted);margin-top:8px;padding-top:14px;border-top:1px solid var(--border);}
+</style>
+</head>
+<body>
+<div class="topbar" id="topbar"></div>
+<div class="wrap">
+<h1>🚗 Crédit vs Leasing — Comparateur (Suisse)</h1>
+<p class="sub">Coût net réel par mois, sur votre horizon réel de possession si vous revendez avant la fin du contrat.</p>
+
+<div class="layout">
+<div class="inputs">
+
+<details open><summary>Véhicule & financement</summary><div class="dbody">
+<div class="grid"><div><label>Prix du véhicule (CHF)</label><input type="number" id="prix" value="25000" step="500"></div></div>
+<hr class="subhr">
+<b style="font-size:.78rem;color:var(--credit-ink);background:var(--credit-soft);padding:4px 10px;border-radius:20px;display:inline-block">Crédit</b>
+<div class="grid" style="margin-top:8px">
+<div><label>Durée du contrat (mois)</label><input type="number" id="dC" value="60" step="6"></div>
+<div><label>Apport initial (CHF)</label><input type="number" id="apport" value="5000" step="500"></div>
+<div><label>Taux d'intérêt annuel (%)</label><input type="number" id="txC" value="4.9" step="0.1"></div>
+<div><label>Frais de dossier (CHF)</label><input type="number" id="fraisC" value="250" step="50"></div>
+<div><label>Valeur de revente si vous allez au bout (CHF)</label><input type="number" id="revente" value="8000" step="500"></div>
+</div>
+<hr class="subhr">
+<b style="font-size:.78rem;color:var(--leasing-ink);background:var(--leasing-soft);padding:4px 10px;border-radius:20px;display:inline-block">Leasing</b>
+<div class="grid" style="margin-top:8px">
+<div><label>Durée du contrat (mois)</label><input type="number" id="dL" value="36" step="6"></div>
+<div><label>Premier loyer (CHF)</label><input type="number" id="premier" value="3000" step="500"></div>
+<div><label>Valeur résiduelle fin de contrat (CHF)</label><input type="number" id="vr" value="13000" step="500"></div>
+<div><label>Taux d'intérêt annuel (%)</label><input type="number" id="txL" value="3.9" step="0.1"></div>
+<div><label>Frais de dossier (CHF)</label><input type="number" id="fraisL" value="250" step="50"></div>
+</div>
+<div class="checkrow"><input type="checkbox" id="rachat"><label style="margin:0" for="rachat">Je compte racheter le véhicule à la valeur résiduelle en fin de contrat</label></div>
+<div class="grid" id="fRachat" style="margin-top:8px;display:none">
+<div><label>Valeur de revente estimée après rachat (CHF)</label><input type="number" id="reventeRachat" value="13000" step="500"></div>
+</div>
+</div></details>
+
+<details open><summary>Revente anticipée / horizon réel</summary><div class="dbody">
+<div class="checkrow" style="margin-top:0"><input type="checkbox" id="horizonActif"><label style="margin:0" for="horizonActif">Je compare sur un horizon de possession réel, plus court que les durées contractuelles (cas fréquent : revente avant la fin du crédit)</label></div>
+<div class="grid" id="fHorizon" style="margin-top:10px;display:none">
+<div><label>Horizon de possession réelle (mois)</label><input type="number" id="horizonMois" value="24" step="3"></div>
+<div><label>Valeur de revente du véhicule à cet horizon (CHF)</label><input type="number" id="reventeHorizon" value="16000" step="500"></div>
+<div><label>Indemnité remb. anticipé crédit (% du capital restant dû)</label><input type="number" id="indemCredit" value="1" step="0.25"></div>
+<div><label>Pénalité de sortie anticipée leasing (CHF)</label><input type="number" id="penaliteLeasing" value="0" step="100"></div>
+</div>
+<p class="hint">Si l'horizon dépasse la durée d'un contrat, celui-ci est calculé normalement jusqu'à son terme (revente/rachat déjà définis ci-dessus). Le crédit revendu tôt : vous soldez le capital restant dû avec le prix de vente — le solde peut être négatif si la dépréciation va plus vite que l'amortissement. Le leasing n'offre presque jamais de sortie anticipée sans frais : à défaut de clause connue dans votre contrat, restez prudent sur la pénalité saisie.</p>
+</div></details>
+
+<details><summary>Kilométrage & usure</summary><div class="dbody">
+<div class="grid">
+<div><label>Forfait inclus (km/an)</label><input type="number" id="kmInc" value="15000" step="1000"></div>
+<div><label>Kilométrage réel prévu (km/an)</label><input type="number" id="kmReel" value="15000" step="1000"></div>
+<div><label>Coût du km supplémentaire (CHF)</label><input type="number" id="coutKm" value="0.25" step="0.05"></div>
+<div><label>Provision usure / remise en état (CHF, leasing)</label><input type="number" id="usure" value="0" step="100"></div>
+</div>
+<div class="checkrow"><input type="checkbox" id="usureCredit"><label style="margin:0" for="usureCredit">Appliquer aussi cette provision au crédit (marge de prudence)</label></div>
+<p class="hint">L'entretien courant est géré dans la section suivante et déjà compté des deux côtés. L'usure ci-dessus est le malus contractuel de fin de leasing — côté crédit elle est en principe déjà dans votre estimation de revente ; ne cochez que pour une marge supplémentaire.</p>
+</div></details>
+
+<details><summary>Entretien & assurance</summary><div class="dbody">
+<div class="grid">
+<div><label>Entretien & pneus estimés (CHF/an)</label><input type="number" id="entretien" value="800" step="50"></div>
+<div><label>Assurance casco complète (CHF/mois)</label><input type="number" id="assurance" value="80" step="5"></div>
+</div>
+<div class="checkrow"><input type="checkbox" id="inclusL"><label style="margin:0" for="inclusL">Entretien & pneus déjà inclus dans le loyer leasing</label></div>
+<div class="checkrow"><input type="checkbox" id="assCredit"><label style="margin:0" for="assCredit">Appliquer aussi l'assurance casco au crédit</label></div>
+</div></details>
+
+<details><summary>Fiscalité</summary><div class="dbody">
+<div class="grid">
+<div><label>Usage du véhicule</label><select id="usage"><option value="prive">Privé</option><option value="independant">Indépendant</option></select></div>
+<div><label>Taux marginal d'imposition (%)</label><input type="number" id="txMarg" value="30" step="1"></div>
+<div id="fFortune"><label>Taux d'impôt sur la fortune (%)</label><input type="number" id="txFort" value="0.3" step="0.05"></div>
+<div id="fRendement"><label>Rendement imposable fortune, hors immo (CHF/an)</label><input type="number" id="rendFort" value="0" step="500"></div>
+</div>
+<p class="hint" id="fiscNote"></p>
+</div></details>
+
+<details><summary>Coût d'opportunité du capital</summary><div class="dbody">
+<div class="grid"><div><label>Taux de placement alternatif (%/an)</label><input type="number" id="txPlacement" value="2" step="0.25"></div></div>
+<p class="hint">Croissance perdue sur l'apport/premier loyer + frais de dossier, calculée sur votre horizon réel de possession.</p>
+</div></details>
+
+</div>
+
+<div class="output">
+<div class="verdict" id="verdictBox"><div id="verdict"></div><div id="bars"></div></div>
+<div class="card"><h2><span class="dot" style="background:var(--credit)"></span>Crédit</h2><div id="creditBreak"></div></div>
+<div class="card"><h2><span class="dot" style="background:var(--leasing)"></span>Leasing</h2><div id="leasingBreak"></div></div>
+</div>
+</div>
+
+<p class="note">Modèle indicatif : amortissement crédit à mensualité constante, plafond de déduction des intérêts passifs (rendement de la fortune + CHF 50'000/an) en usage privé — règle en vigueur jusqu'à fin 2028 au moins. En cas de revente/sortie anticipée, le capital restant dû est calculé comme la valeur actuelle des mensualités restantes ; l'indemnité de remboursement anticipé et la pénalité leasing dépendent de votre contrat réel, vérifiez-les. Le coût d'opportunité ne porte que sur le capital versé d'avance. Vérifiez vos taux fiscaux réels (fortement variables par canton) avant toute décision.</p>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=n=>new Intl.NumberFormat('fr-CH',{maximumFractionDigits:0}).format(Math.round(n))+' CHF';
+
+function calc(){
+  const prix=+$('prix').value;
+  const dC=+$('dC').value, apport=+$('apport').value, txC=+$('txC').value, fraisC=+$('fraisC').value, revente=+$('revente').value;
+  const dL=+$('dL').value, premier=+$('premier').value, vr=+$('vr').value, txL=+$('txL').value, fraisL=+$('fraisL').value, rachat=$('rachat').checked, reventeRachat=+$('reventeRachat').value;
+  const kmInc=+$('kmInc').value, kmReel=+$('kmReel').value, coutKm=+$('coutKm').value, usure=+$('usure').value, usureCredit=$('usureCredit').checked;
+  const entretien=+$('entretien').value, inclusL=$('inclusL').checked;
+  const assM=+$('assurance').value, assCredit=$('assCredit').checked;
+  const usage=$('usage').value, txMarg=+$('txMarg').value, txFort=+$('txFort').value, rendFort=+$('rendFort').value;
+  const txPlacement=+$('txPlacement').value;
+  const horizonOn=$('horizonActif').checked, horizonMois=+$('horizonMois').value, reventeHorizon=+$('reventeHorizon').value, indemCredit=+$('indemCredit').value, penaliteLeasingV=+$('penaliteLeasing').value;
+
+  $('fRachat').style.display = rachat ? '' : 'none';
+  $('fHorizon').style.display = horizonOn ? '' : 'none';
+  $('fFortune').style.display = usage==='prive' ? '' : 'none';
+  $('fRendement').style.display = usage==='prive' ? '' : 'none';
+  $('fiscNote').textContent = usage==='prive'
+    ? "Privé : intérêts déductibles (plafonnés à rendement de la fortune + CHF 50'000/an), dette qui réduit la fortune imposable. Leasing privé : aucune déduction."
+    : "Indépendant : intérêts + dépréciation réellement subie déductibles côté crédit, totalité des loyers déductible côté leasing.";
+
+  const capF=Math.max(prix-apport,0);
+  const rM=txC/100/12;
+  const mensC = rM===0 ? capF/dC : capF*rM/(1-Math.pow(1+rM,-dC));
+  const interetsCFull = mensC*dC-capF;
+
+  const mensL = (prix-vr)/dL + ((prix+vr)/2*(txL/100))/12;
+
+  const HC = horizonOn ? Math.min(horizonMois,dC) : dC;
+  const HL = horizonOn ? Math.min(horizonMois,dL) : dL;
+  const creditFullTerm = HC>=dC, leasingFullTerm = HL>=dL;
+
+  let crd=0, penalCredit=0, netAssetCredit;
+  if(creditFullTerm){ netAssetCredit=revente; }
+  else{
+    crd = rM===0 ? Math.max(capF-mensC*HC,0) : mensC*(1-Math.pow(1+rM,-(dC-HC)))/rM;
+    penalCredit = crd*(indemCredit/100);
+    netAssetCredit = reventeHorizon-crd-penalCredit;
+  }
+  const totMensCPeriod = mensC*HC;
+  const interetsCPeriod = creditFullTerm ? interetsCFull : (totMensCPeriod-(capF-crd));
+  const detteMoyPeriod = creditFullTerm ? capF/2 : (capF+crd)/2;
+
+  let achatRachat=0, actifRachat=0, penaliteLeasingApplied=0;
+  if(leasingFullTerm){ achatRachat=rachat?vr:0; actifRachat=rachat?reventeRachat:0; }
+  else{ penaliteLeasingApplied=penaliteLeasingV; }
+  const totMensLPeriod = mensL*HL;
+  const interetsLPeriod = totMensLPeriod-Math.min((prix-vr)*(HL/dL),prix-vr);
+
+  const kmSupp = Math.max(0,kmReel-kmInc)*(HL/12)*coutKm;
+  const entretienC = entretien*(HC/12);
+  const entretienL = inclusL?0:entretien*(HL/12);
+  const usureC = usureCredit?usure:0;
+  const assTotC = assCredit?assM*HC:0;
+  const assTotL = assM*HL;
+
+  let avCredit, avLeasing;
+  if(usage==='prive'){
+    const plafond=rendFort+50000;
+    const interetsAnnMoy=interetsCPeriod/(HC/12);
+    const interetsDeduct=Math.min(interetsAnnMoy,plafond)*(HC/12);
+    avCredit = interetsDeduct*(txMarg/100) + detteMoyPeriod*(txFort/100)*(HC/12);
+    avLeasing = 0;
+  } else {
+    const deprDeduct = Math.max(prix-Math.max(netAssetCredit,0),0);
+    avCredit = (interetsCPeriod+deprDeduct)*(txMarg/100);
+    avLeasing = totMensLPeriod*(txMarg/100);
+  }
+
+  const capInitC=apport+fraisC, capInitL=premier+fraisL;
+  const oppC = capInitC*(Math.pow(1+txPlacement/100,HC/12)-1);
+  const oppL = capInitL*(Math.pow(1+txPlacement/100,HL/12)-1);
+
+  const coutCredit = apport+fraisC+totMensCPeriod+assTotC+entretienC+usureC-netAssetCredit-avCredit+oppC;
+  const coutLeasing = premier+fraisL+totMensLPeriod+assTotL+entretienL+kmSupp+usure+achatRachat-actifRachat+penaliteLeasingApplied-avLeasing+oppL;
+  const mensNetC=coutCredit/HC, mensNetL=coutLeasing/HL;
+
+  const creditTermHTML = creditFullTerm
+    ? `<div class="subhead">Ajustements</div>
+       <div class="row"><span>Coût d'opportunité de l'apport</span><span>+${fmt(oppC)}</span></div>
+       <div class="row neg"><span>− Valeur de revente (actif conservé)</span><span>−${fmt(revente)}</span></div>`
+    : `<div class="subhead">Revente anticipée (mois ${HC})</div>
+       <div class="row"><span>Prix de revente estimé</span><span>${fmt(reventeHorizon)}</span></div>
+       <div class="row"><span>− Capital restant dû</span><span>−${fmt(crd)}</span></div>
+       <div class="row"><span>− Indemnité remb. anticipé</span><span>−${fmt(penalCredit)}</span></div>
+       <div class="row ${netAssetCredit>=0?'neg':'bad'}"><span>${netAssetCredit>=0?'= Valeur nette récupérée':'= Solde négatif à combler'}</span><span>${netAssetCredit>=0?'−'+fmt(netAssetCredit):'+'+fmt(-netAssetCredit)}</span></div>
+       <div class="subhead">Ajustements</div>
+       <div class="row"><span>Coût d'opportunité de l'apport</span><span>+${fmt(oppC)}</span></div>`;
+
+  $('creditBreak').innerHTML=`
+    <div class="realpay"><div class="lbl">Mensualité réellement payée</div><div class="amt">${fmt(mensC)}/mois</div></div>
+    <div class="subhead">Financement</div>
+    <div class="row"><span>Apport initial</span><span>${fmt(apport)}</span></div>
+    <div class="row"><span>Frais de dossier</span><span>${fmt(fraisC)}</span></div>
+    <div class="row"><span>Capital emprunté</span><span>${fmt(capF)}</span></div>
+    <div class="row"><span>Intérêts payés (${HC} mois)</span><span>${fmt(interetsCPeriod)}</span></div>
+    <div class="subhead">Coûts d'usage</div>
+    <div class="row"><span>Entretien & pneus</span><span>${fmt(entretienC)}</span></div>
+    <div class="row"><span>Assurance casco</span><span>${fmt(assTotC)}</span></div>
+    <div class="row"><span>Provision usure (optionnelle)</span><span>${fmt(usureC)}</span></div>
+    ${creditTermHTML}
+    <div class="row neg"><span>− Avantage fiscal</span><span>−${fmt(avCredit)}</span></div>
+    <div class="row total"><span>Coût net total (${HC} mois)</span><span>${fmt(coutCredit)}</span></div>
+    <div class="row"><span>≈ coût net / mois</span><span>${fmt(mensNetC)}</span></div>`;
+
+  const leasingTermHTML = leasingFullTerm
+    ? `<div class="subhead">Rachat en fin de contrat</div>
+       <div class="row"><span>Achat véhicule (VR)</span><span>${rachat?fmt(achatRachat):'—'}</span></div>
+       <div class="row neg"><span>− Valeur de l'actif acquis</span><span>${rachat?'−'+fmt(actifRachat):'—'}</span></div>`
+    : `<div class="subhead">Sortie anticipée (mois ${HL})</div>
+       <div class="row"><span>Pénalité de résiliation</span><span>${fmt(penaliteLeasingApplied)}</span></div>
+       <div class="hint" style="margin:2px 0 8px">Aucun actif récupéré : le véhicule est restitué au bailleur.</div>`;
+
+  $('leasingBreak').innerHTML=`
+    <div class="realpay"><div class="lbl">Mensualité réellement payée</div><div class="amt">${fmt(mensL)}/mois</div></div>
+    <div class="subhead">Financement</div>
+    <div class="row"><span>Premier loyer</span><span>${fmt(premier)}</span></div>
+    <div class="row"><span>Frais de dossier</span><span>${fmt(fraisL)}</span></div>
+    <div class="row"><span>Loyers payés (${HL} mois, dt. intérêts ${fmt(interetsLPeriod)})</span><span>${fmt(totMensLPeriod)}</span></div>
+    <div class="subhead">Coûts d'usage</div>
+    <div class="row"><span>Entretien & pneus</span><span>${fmt(entretienL)}</span></div>
+    <div class="row"><span>Assurance casco (obligatoire)</span><span>${fmt(assTotL)}</span></div>
+    <div class="row"><span>Dépassement kilométrique</span><span>${fmt(kmSupp)}</span></div>
+    <div class="row"><span>Provision usure</span><span>${fmt(usure)}</span></div>
+    ${leasingTermHTML}
+    <div class="subhead">Ajustements</div>
+    <div class="row"><span>Coût d'opportunité du 1er loyer</span><span>+${fmt(oppL)}</span></div>
+    <div class="row neg"><span>− Avantage fiscal</span><span>−${fmt(avLeasing)}</span></div>
+    <div class="row total"><span>Coût net total (${HL} mois)</span><span>${fmt(coutLeasing)}</span></div>
+    <div class="row"><span>≈ coût net / mois</span><span>${fmt(mensNetL)}</span></div>`;
+
+  const diff=mensNetL-mensNetC;
+  const cheaper=diff>=0?'crédit':'leasing';
+  const color=diff>=0?'var(--credit-ink)':'var(--leasing-ink)';
+  $('verdict').innerHTML=`<div class="big" style="color:${color}">Le ${cheaper} coûte ${fmt(Math.abs(diff))}/mois de moins</div><div class="sub2">Coût net équivalent — comparé sur ${HC} mois (crédit) vs ${HL} mois (leasing)</div>`;
+  $('topbar').innerHTML=`${cheaper==='crédit'?'🔵':'🟠'} Le ${cheaper} est ${fmt(Math.abs(diff))}/mois moins cher (net)`;
+  $('topbar').style.color = color;
+  const colorSolid = diff>=0?'var(--credit)':'var(--leasing)';
+  $('verdictBox').style.borderColor = colorSolid;
+
+  const max=Math.max(mensNetC,mensNetL,1);
+  $('bars').innerHTML=`
+    <div class="bar-row"><span style="width:55px">Crédit</span><div class="bar-track"><div class="bar-fill" style="width:${mensNetC/max*100}%;background:var(--credit)"></div></div><span>${fmt(mensNetC)}</span></div>
+    <div class="bar-row"><span style="width:55px">Leasing</span><div class="bar-track"><div class="bar-fill" style="width:${mensNetL/max*100}%;background:var(--leasing)"></div></div><span>${fmt(mensNetL)}</span></div>`;
+}
+document.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',calc));
+calc();
+</script>
+
+<script>
+// Préremplissage depuis l'appli : leasing.html#prix=45000&dC=36 … (ids des champs ; cases à cocher : 1/0)
+(function(){
+  function apply(){
+    var h=new URLSearchParams(location.hash.slice(1)),any=false;
+    h.forEach(function(v,k){var el=document.getElementById(k);if(!el)return;any=true;if(el.type==='checkbox')el.checked=(v==='1'||v==='true');else el.value=v;});
+    if(any){document.querySelectorAll('input,select').forEach(function(e){e.dispatchEvent(new Event('input',{bubbles:true}));});}
+  }
+  window.addEventListener('hashchange',apply);apply();
+})();
+</script>
+</body>
+</html>
+
+
+<script>
+// Préremplissage depuis l'appli : leasing.html#prix=45000&dC=36 … (ids des champs ; cases à cocher : 1/0)
+(function(){
+  function apply(){
+    var h=new URLSearchParams(location.hash.slice(1)),any=false;
+    h.forEach(function(v,k){var el=document.getElementById(k);if(!el)return;any=true;if(el.type==='checkbox')el.checked=(v==='1'||v==='true');else el.value=v;});
+    if(any){document.querySelectorAll('input,select').forEach(function(e){e.dispatchEvent(new Event('input',{bubbles:true}));});}
+  }
+  window.addEventListener('hashchange',apply);apply();
+})();
+</script>
+</body></html>

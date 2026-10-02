@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Import Allemagne ↔ Suisse — CoteSport</title>
+<style>
+/* Layout : saisie en sections colorées à gauche, résultat collant à droite. Couleurs : rouge suisse, or allemand, bleu change, vert verdict */
+:root{
+  --bg:#f3f5f9;--card:#ffffff;--text:#172030;--muted:#5f6b7c;--border:#e0e5ee;
+  --ch:#d52b1e;--chSoft:#fdecea;--de:#c48600;--deSoft:#fdf4de;
+  --fx:#2d6cdf;--fxSoft:#e8f0fd;--tr:#0f8f86;--trSoft:#e1f5f3;--dz:#7a4fd1;--dzSoft:#f0eafc;
+  --veh:#4a5a74;--vehSoft:#eceff5;--good:#15924d;--goodSoft:#e2f6eb;--field:#f7f9fc;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#11151b;--card:#1b2029;--text:#edf1f6;--muted:#9ba6b6;--border:#2d3440;--ch:#ff6a5e;--chSoft:#3a1f1e;--de:#f0b53a;--deSoft:#362c14;--fx:#6d9cff;--fxSoft:#1b2a44;--tr:#3fc7bb;--trSoft:#14322f;--dz:#a88bff;--dzSoft:#2a2242;--veh:#aab6ca;--vehSoft:#252c37;--good:#3fd07f;--goodSoft:#16301f;--field:#141922;color-scheme:dark;}}
+:root[data-theme="dark"]{--bg:#11151b;--card:#1b2029;--text:#edf1f6;--muted:#9ba6b6;--border:#2d3440;--ch:#ff6a5e;--chSoft:#3a1f1e;--de:#f0b53a;--deSoft:#362c14;--fx:#6d9cff;--fxSoft:#1b2a44;--tr:#3fc7bb;--trSoft:#14322f;--dz:#a88bff;--dzSoft:#2a2242;--veh:#aab6ca;--vehSoft:#252c37;--good:#3fd07f;--goodSoft:#16301f;--field:#141922;color-scheme:dark;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.45;-webkit-text-size-adjust:100%;}
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--card);border-bottom:1px solid var(--border);padding:10px 16px;font-size:.86rem;font-weight:600;display:flex;justify-content:center;gap:14px;flex-wrap:wrap;font-variant-numeric:tabular-nums;}
+.topbar b{font-weight:700}
+.tb-ch{color:var(--ch)} .tb-de{color:var(--de)} .tb-win{color:var(--good);background:var(--goodSoft);padding:1px 9px;border-radius:999px}
+.wrap{max-width:1180px;margin:0 auto;padding:22px 16px 48px;}
+h1{font-size:1.4rem;margin:0 0 6px;text-wrap:balance;letter-spacing:-.01em}
+h1 .c1{color:var(--ch)} h1 .c2{color:var(--de)}
+.sub{color:var(--muted);font-size:.88rem;margin:0 0 20px;max-width:70ch;}
+.layout{display:grid;grid-template-columns:1.15fr 1fr;gap:22px;align-items:start;}
+.layout>*{min-width:0}
+@media (max-width:880px){.layout{grid-template-columns:1fr}.output{position:static!important;max-height:none!important}}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 14px;}
+details{--c:var(--veh);--s:var(--vehSoft);border:1px solid var(--border);border-radius:14px;margin:0 0 12px;background:var(--card);overflow:hidden;}
+details.t-ch{--c:var(--ch);--s:var(--chSoft)} details.t-de{--c:var(--de);--s:var(--deSoft)}
+details.t-fx{--c:var(--fx);--s:var(--fxSoft)} details.t-tr{--c:var(--tr);--s:var(--trSoft)} details.t-dz{--c:var(--dz);--s:var(--dzSoft)}
+summary{cursor:pointer;padding:12px 16px;font-weight:650;font-size:.9rem;list-style:none;display:flex;align-items:center;gap:10px;background:var(--s);color:var(--text);}
+summary::-webkit-details-marker{display:none}
+summary .ic{width:26px;height:26px;border-radius:8px;background:var(--c);color:#fff;display:grid;place-items:center;font-size:.72rem;font-weight:800;flex:none;letter-spacing:.02em}
+summary .t{flex:1}
+summary::after{content:'';width:8px;height:8px;border-right:2px solid var(--c);border-bottom:2px solid var(--c);transform:rotate(45deg);margin-right:4px;transition:transform .2s}
+details[open] summary::after{transform:rotate(-135deg)}
+@media (prefers-reduced-motion:reduce){summary::after{transition:none}}
+.flag{display:none}
+.dbody{padding:14px 16px 16px;border-top:1px solid var(--border)}
+label{display:block;font-size:.77rem;color:var(--muted);margin-bottom:4px;}
+input[type=number],select{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:9px;background:var(--field);color:var(--text);font-size:.93rem;font-variant-numeric:tabular-nums;font-family:inherit}
+input[disabled]{opacity:.65}
+input:focus-visible,select:focus-visible{outline:2px solid var(--c,var(--fx));outline-offset:1px;border-color:transparent}
+summary:focus-visible{outline:2px solid var(--c);outline-offset:-2px}
+.checkrow{display:flex;align-items:flex-start;gap:9px;margin-top:12px;}
+.checkrow input{width:18px;height:18px;margin-top:1px;accent-color:var(--c);flex:none}
+.checkrow label{margin:0;color:var(--text);font-size:.83rem}
+.hint{font-size:.75rem;color:var(--muted);margin:10px 0 0;}
+.output{position:sticky;top:calc(env(safe-area-inset-top,0px) + 56px);max-height:calc(100vh - 72px);overflow-y:auto;}
+.verdict{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 16px 16px;margin-bottom:14px;text-align:center;}
+body[data-win="de"] .verdict,body[data-win="ch"] .verdict{background:var(--goodSoft);border-color:transparent}
+.big{font-size:1.2rem;font-weight:750;margin-bottom:4px;text-wrap:balance;line-height:1.3}
+.big .amt{color:var(--good);white-space:nowrap}
+.sub2{color:var(--muted);font-size:.78rem;margin-bottom:12px;}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:.78rem;font-variant-numeric:tabular-nums;font-weight:600}
+.bar-row .n{width:72px;text-align:left}
+.bar-row .v{width:96px;text-align:right}
+.bar-track{flex:1;background:var(--card);border-radius:7px;height:14px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:7px;}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.kpi{background:var(--card);border-radius:12px;padding:10px 11px;text-align:left}
+.kpi .l{font-size:.64rem;text-transform:uppercase;letter-spacing:.05em;color:var(--fx);font-weight:750}
+.kpi .a{font-size:1.06rem;font-weight:750;font-variant-numeric:tabular-nums}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:0;margin-bottom:14px;overflow:hidden}
+.card h2{margin:0;font-size:.95rem;display:flex;align-items:center;gap:9px;padding:12px 16px;background:var(--vehSoft)}
+.card.c-ch h2{background:var(--chSoft)} .card.c-de h2{background:var(--deSoft)} .card.chart h2{background:var(--fxSoft)}
+.card .cb{padding:6px 16px 14px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
+.subhead{font-size:.66rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:750;margin:12px 0 3px;}
+.row{display:flex;justify-content:space-between;gap:10px;font-size:.83rem;padding:4px 0;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;}
+.row span:last-child{white-space:nowrap;font-weight:550}
+.row.total{font-weight:750;font-size:1rem;border-bottom:none;margin-top:10px;padding:9px 11px;border-radius:10px;background:var(--vehSoft)}
+.c-ch .row.total{background:var(--chSoft)} .c-de .row.total{background:var(--deSoft)}
+.row.neg{color:var(--good);}
+.row.mute{color:var(--muted)}
+.row.mute span:last-child{font-weight:400}
+.chart svg{width:100%;height:auto;display:block}
+.fxbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px;font-size:.78rem;color:var(--muted)}
+.fxbar span{flex:1 1 180px}
+.fxbar button,.fxbar a{font:inherit;font-weight:650;color:var(--fx);background:var(--fxSoft);border:0;border-radius:999px;padding:7px 12px;text-decoration:none;cursor:pointer;min-height:34px;display:inline-flex;align-items:center}
+.fxbar button:focus-visible,.fxbar a:focus-visible{outline:2px solid var(--fx);outline-offset:1px}
+.note{font-size:.74rem;color:var(--muted);margin-top:12px;padding:14px 16px;border-radius:14px;background:var(--card);border:1px solid var(--border);max-width:110ch}
+.note p{margin:0 0 7px}.note p:last-child{margin:0}
+.note b{color:var(--text)}
+</style>
+
+<div class="topbar" id="topbar"></div>
+<div class="wrap">
+<h1>Achat en <span class="c1">Suisse</span> ou import d'<span class="c2">Allemagne</span> ?</h1>
+<p class="sub">Coût d'achat net des deux options en CHF, véhicule immatriculé en Suisse : prix, taxes d'importation, change et frais de rapatriement. Les valeurs de départ sont un exemple : remplacez-les par vos deux offres.</p>
+
+<div class="layout">
+<div class="inputs">
+
+<details open class="t-veh"><summary><span class="ic">🚗</span><span class="t">Véhicule & canton</span></summary><div class="dbody">
+<div class="grid">
+<div><label for="canton">Canton d'immatriculation</label><select id="canton"></select></div>
+<div><label for="etat">État du véhicule</label><select id="etat">
+<option value="neuf">Neuf / récent (&lt; 6 mois ou &lt; 5'000 km)</option>
+<option value="occ">Occasion (&gt; 6 mois et &gt; 5'000 km)</option></select></div>
+</div>
+<p class="hint" id="cantonHint"></p>
+</div></details>
+
+<details open class="t-ch"><summary><span class="ic">CH</span><span class="t">Offre suisse, en CHF</span></summary><div class="dbody">
+<div class="grid">
+<div><label for="prixCH">Prix catalogue TTC (CHF)</label><input type="number" id="prixCH" value="45000" step="500"></div>
+<div><label for="remiseCH">Remise concession (%)</label><input type="number" id="remiseCH" value="5" step="0.5"></div>
+<div><label for="livrCH">Frais de livraison / préparation (CHF)</label><input type="number" id="livrCH" value="0" step="50"></div>
+<div><label for="bonusCH">Primes CH déduites du prix (cash, flotte) (CHF)</label><input type="number" id="bonusCH" value="0" step="100"></div>
+</div>
+<p class="hint">Prix TTC : la TVA suisse de 8,1 % est déjà incluse et reste à votre charge.</p>
+</div></details>
+
+<details open class="t-de"><summary><span class="ic">DE</span><span class="t">Offre allemande, en EUR</span></summary><div class="dbody">
+<div class="grid">
+<div><label for="prixDE">Prix affiché TTC (EUR)</label><input type="number" id="prixDE" value="42000" step="500"></div>
+<div><label for="remiseDE">Remise (%)</label><input type="number" id="remiseDE" value="8" step="0.5"></div>
+<div><label for="vendeur">Type de vendeur</label><select id="vendeur">
+<option value="normal">Concession, TVA 19 % récupérable à l'export</option>
+<option value="marge">Concession, régime de marge (§25a)</option>
+<option value="prive">Particulier</option></select></div>
+<div><label for="tvaDE">TVA allemande (%)</label><input type="number" id="tvaDE" value="19" step="1"></div>
+<div><label for="ueberf">Überführung / frais de mise à disposition TTC (EUR)</label><input type="number" id="ueberf" value="990" step="50"></div>
+<div><label for="exportFee">Frais d'export facturés par le vendeur (EUR)</label><input type="number" id="exportFee" value="150" step="50"></div>
+</div>
+<div id="fAvance">
+<div class="checkrow"><input type="checkbox" id="avance"><label for="avance">Je paie TTC et la TVA allemande m'est remboursée après preuve d'export (sinon : facture directement hors TVA)</label></div>
+<div class="grid" id="fDelai" style="margin-top:8px">
+<div><label for="delai">Délai de remboursement (mois)</label><input type="number" id="delai" value="2" step="1"></div>
+<div><label for="placement">Rendement perdu sur l'avance (%/an)</label><input type="number" id="placement" value="2" step="0.25"></div>
+</div>
+</div>
+<p class="hint" id="vendeurHint"></p>
+</div></details>
+
+<details open class="t-fx"><summary><span class="ic">€→</span><span class="t">Change EUR → CHF</span></summary><div class="dbody">
+<div class="grid">
+<div><label for="taux">Taux EUR/CHF (marché)</label><input type="number" id="taux" value="0.9459" step="0.005"></div>
+<div><label for="margeFx">Marge de change de votre banque (%)</label><input type="number" id="margeFx" value="1.5" step="0.1"></div>
+<div><label for="virement">Frais de virement (CHF)</label><input type="number" id="virement" value="15" step="5"></div>
+</div>
+<div class="fxbar"><span id="fxRef"></span><button type="button" id="fxReset">↺ Taux de référence</button><a id="fxLink" href="https://www.xe.com/fr/currencyconverter/convert/?Amount=1&amp;From=EUR&amp;To=CHF" target="_blank" rel="noopener">Taux en direct ↗</a></div>
+<p class="hint"> Une banque classique prend souvent 1 à 2,5 % de marge, un service de change en ligne 0,2 à 0,6 %. La douane calcule les taxes au taux officiel du jour, proche du taux du marché.</p>
+</div></details>
+
+<details class="t-tr"><summary><span class="ic">KM</span><span class="t">Transport & déplacement</span></summary><div class="dbody">
+<div class="grid">
+<div><label for="mode">Rapatriement</label><select id="mode">
+<option value="conduite">Je le ramène moi-même (plaques export)</option>
+<option value="camion">Transporteur</option></select></div>
+<div id="fPlaques"><label for="plaques">Plaques export + assurance (EUR)</label><input type="number" id="plaques" value="180" step="10"></div>
+<div id="fCamion"><label for="camion">Prix du transporteur (EUR)</label><input type="number" id="camion" value="650" step="50"></div>
+<div><label for="distCH">Distance domicile → frontière DE (km)</label><input type="number" id="distCH" value="40" step="10"></div>
+<div><label for="distDE">Distance frontière → vendeur (km)</label><input type="number" id="distDE" value="150" step="10"></div>
+<div><label for="kmAller">Coût aller sans le véhicule (CHF/km)</label><input type="number" id="kmAller" value="0.30" step="0.05"></div>
+<div id="fRetour"><label for="kmRetour">Carburant/énergie au retour (CHF/km)</label><input type="number" id="kmRetour" value="0.12" step="0.01"></div>
+<div><label for="hotel">Hôtel, repas, divers (CHF)</label><input type="number" id="hotel" value="0" step="50"></div>
+<div><label for="heures">Temps passé (heures)</label><input type="number" id="heures" value="10" step="1"></div>
+<div><label for="tarifH">Valeur de votre temps (CHF/h)</label><input type="number" id="tarifH" value="0" step="10"></div>
+</div>
+<p class="hint" id="modeHint"></p>
+</div></details>
+
+<details open class="t-dz"><summary><span class="ic">%</span><span class="t">Douane & homologation</span></summary><div class="dbody">
+<div class="grid">
+<div><label>Impôt sur les automobiles</label><input type="number" value="4" disabled></div>
+<div><label>TVA suisse à l'importation (%)</label><input type="number" value="8.1" disabled></div>
+<div><label for="emol">Émoluments douane / rapport 13.20A (CHF)</label><input type="number" id="emol" value="20" step="5"></div>
+<div><label for="transitaire">Transitaire / déclarant (CHF)</label><input type="number" id="transitaire" value="0" step="25"></div>
+<div id="fCo2"><label for="co2">Sanction CO₂ (CHF)</label><input type="number" id="co2" value="0" step="100"></div>
+<div><label for="mfk">Expertise d'importation au service des autos (CHF)</label><input type="number" id="mfk" value="120" step="10"></div>
+<div><label for="emiss">Test antipollution / adaptations (CHF)</label><input type="number" id="emiss" value="0" step="50"></div>
+</div>
+<div class="checkrow"><input type="checkbox" id="coc" checked><label for="coc">Le véhicule a un certificat de conformité européen (COC) complet</label></div>
+<div class="grid" id="fHomolog" style="margin-top:8px">
+<div><label for="homolog">Homologation individuelle (CHF)</label><input type="number" id="homolog" value="1500" step="100"></div>
+</div>
+<p class="hint">Droits de douane : CHF 0 depuis le 1er janvier 2024 (suppression des droits sur les produits industriels). L'impôt de 4 % s'applique aussi aux voitures électriques depuis 2024. <span id="co2Hint"></span></p>
+</div></details>
+
+<details class="t-veh"><summary><span class="ic">+</span><span class="t">Avantages non monétaires (optionnel)</span></summary><div class="dbody">
+<div class="grid">
+<div><label for="servCH">Entretien gratuit inclus en Suisse (CHF)</label><input type="number" id="servCH" value="0" step="100"></div>
+<div><label for="equipCH">Équipements en plus sur la version CH (CHF)</label><input type="number" id="equipCH" value="0" step="100"></div>
+</div>
+<div class="checkrow"><input type="checkbox" id="garOk" checked><label for="garOk">La garantie constructeur est honorée par le réseau suisse</label></div>
+<div class="grid" id="fGar" style="margin-top:8px">
+<div><label for="garCost">Coût d'une extension de garantie (CHF)</label><input type="number" id="garCost" value="1200" step="100"></div>
+</div>
+<p class="hint">Laissez à 0 pour comparer uniquement les prix. Certains importateurs suisses incluent l'entretien gratuit sur plusieurs années ou vendent des « Swiss Edition » mieux équipées, avantages qu'un import direct n'a pas.</p>
+</div></details>
+
+</div>
+
+<div class="output">
+<div class="verdict">
+<div class="big" id="verdict"></div>
+<div class="sub2" id="verdictSub"></div>
+<div id="bars"></div>
+<div class="kpis">
+<div class="kpi"><div class="l">Taux EUR/CHF d'équilibre</div><div class="a" id="beRate"></div></div>
+<div class="kpi"><div class="l">Prix allemand d'équilibre</div><div class="a" id="bePrice"></div></div>
+</div>
+</div>
+
+<div class="card chart"><h2>Économie selon le taux de change</h2><div class="cb"><div id="chart"></div><p class="hint" style="margin-top:4px">Au-dessus de la ligne zéro, l'import est plus avantageux. Le point marque le taux saisi.</p></div></div>
+
+<div class="card c-ch"><h2><span class="dot" style="background:var(--ch)"></span>Achat en Suisse</h2><div class="cb" id="chBreak"></div></div>
+<div class="card c-de"><h2><span class="dot" style="background:var(--de)"></span>Import depuis l'Allemagne</h2><div class="cb" id="deBreak"></div></div>
+</div>
+</div>
+
+<div class="note">
+<p><b>Ce que le canton change, et ce qu'il ne change pas.</b> L'impôt sur les automobiles (4 %) et la TVA à l'importation (8,1 %) sont fédéraux, identiques partout. L'impôt cantonal annuel sur les véhicules et les frais de plaques sont les mêmes quelle que soit l'origine de la voiture, ils n'entrent donc pas dans la comparaison. Le canton joue sur la distance jusqu'à l'Allemagne (préremplie selon le chef-lieu) et sur le tarif de l'expertise d'importation, que vous devez vérifier auprès de votre service des automobiles.</p>
+<p><b>Base des taxes.</b> Impôt auto = 4 % du prix payé hors TVA étrangère, frais annexes et transport jusqu'à destination compris. TVA suisse = 8,1 % de cette valeur + l'impôt auto + les émoluments. Un vendeur particulier ou en régime de marge ne peut pas rembourser de TVA allemande : vous payez alors la TVA deux fois en partie, ce qui rend l'import rarement intéressant.</p>
+<p><b>Où va la TVA.</b> Un achat en Suisse inclut 8,1 % de TVA suisse, qui reste à votre charge. À l'import, c'est la TVA allemande (19 %) qui vous est remboursée par le vendeur, et vous payez à la place la TVA suisse de 8,1 % à la douane.</p>
+<p><b>Sanction CO₂.</b> Due sur les voitures neuves (ou de moins de 6 mois / 5'000 km) dont les émissions dépassent la valeur cible. Pour un véhicule acheté en Suisse, l'importateur officiel l'a déjà intégrée au prix. Calculez-la avec le calculateur de l'Office fédéral de l'énergie avant d'acheter un modèle thermique puissant.</p>
+<p>Modèle indicatif, basé sur les règles de l'OFDF en vigueur en 2026. Vérifiez les montants exacts avant toute décision.</p>
+</div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const FX_REF={rate:0.9459,date:'30.09.2026'};
+const fmt=n=>new Intl.NumberFormat('fr-CH',{maximumFractionDigits:0}).format(Math.round(n))+' CHF';
+const fmtE=n=>new Intl.NumberFormat('fr-CH',{maximumFractionDigits:0}).format(Math.round(n))+' EUR';
+
+// [code, nom, distance approx. du chef-lieu à la frontière allemande la plus proche, km]
+const CANTONS=[
+['AG','Argovie',45],['AI','Appenzell Rh.-Int.',60],['AR','Appenzell Rh.-Ext.',50],['BE','Berne',100],
+['BL','Bâle-Campagne',20],['BS','Bâle-Ville',5],['FR','Fribourg',135],['GE','Genève',255],
+['GL','Glaris',105],['GR','Grisons',150],['JU','Jura',55],['LU','Lucerne',95],
+['NE','Neuchâtel',145],['NW','Nidwald',110],['OW','Obwald',115],['SG','Saint-Gall',40],
+['SH','Schaffhouse',5],['SO','Soleure',70],['SZ','Schwyz',90],['TG','Thurgovie',25],
+['TI','Tessin',230],['UR','Uri',125],['VD','Vaud',200],['VS','Valais',235],
+['ZG','Zoug',75],['ZH','Zurich',40]];
+const selC=$('canton');
+CANTONS.forEach(c=>{const o=document.createElement('option');o.value=c[0];o.textContent=c[1]+' ('+c[0]+')';selC.appendChild(o)});
+selC.value='ZH';
+selC.addEventListener('change',()=>{const c=CANTONS.find(x=>x[0]===selC.value);$('distCH').value=c[2];calc();});
+
+const NUM=['prixCH','remiseCH','livrCH','servCH','bonusCH','equipCH','prixDE','remiseDE','tvaDE','ueberf','exportFee','delai','taux','margeFx','virement','plaques','camion','distCH','distDE','kmAller','kmRetour','hotel','heures','tarifH','emol','transitaire','co2','mfk','emiss','homolog','garCost','placement'];
+function read(){
+  const p={};NUM.forEach(k=>p[k]=+$(k).value||0);
+  ['etat','vendeur','mode'].forEach(k=>p[k]=$(k).value);
+  ['avance','coc','garOk'].forEach(k=>p[k]=$(k).checked);
+  return p;
+}
+
+function model(p){
+  // --- Suisse
+  const chTTC=p.prixCH*(1-p.remiseCH/100)+p.livrCH;
+  const coutCH=chTTC-p.bonusCH-p.servCH-p.equipCH;
+
+  // --- Allemagne
+  const deTTC=p.prixDE*(1-p.remiseDE/100);
+  const recup=p.vendeur==='normal';
+  const k=1+p.tvaDE/100;
+  const deNet=recup?deTTC/k:deTTC;
+  const ueNet=recup?p.ueberf/k:p.ueberf;
+  const tvaDEeur=(deTTC-deNet)+(p.ueberf-ueNet);
+  const transpEUR=p.mode==='conduite'?p.plaques:p.camion;
+  const eurPaid=deNet+ueNet+p.exportFee+transpEUR;
+  const fxEff=p.taux*(1+p.margeFx/100);
+  const chfPaid=eurPaid*fxEff+p.virement;
+  const fraisChange=eurPaid*p.taux*(p.margeFx/100)+p.virement;
+
+  let avanceCost=0, avanceFx=0;
+  if(recup&&p.avance){
+    avanceFx=tvaDEeur*p.taux*(p.margeFx/100)*2;      // conversion aller + retour
+    avanceCost=tvaDEeur*fxEff*(p.placement/100)*(p.delai/12);
+  }
+
+  const valDouane=(deNet+ueNet+p.exportFee+transpEUR)*p.taux;
+  const impotAuto=valDouane*0.04;
+  const baseTVA=valDouane+impotAuto+p.emol;
+  const tvaCH=baseTVA*0.081;
+  const co2=p.etat==='neuf'?p.co2:0;
+  const homolog=p.coc?0:p.homolog;
+  const km=p.distCH+p.distDE;
+  const deplacement=p.mode==='conduite'?km*p.kmAller+km*p.kmRetour+p.hotel:km*p.kmAller*2+p.hotel;
+  const temps=p.heures*p.tarifH;
+  const garantie=p.garOk?0:p.garCost;
+
+  const coutDE=chfPaid+avanceFx+avanceCost+impotAuto+tvaCH+p.emol+p.transitaire+co2+p.mfk+p.emiss+homolog+deplacement+temps+garantie;
+  return {chTTC,coutCH,deTTC,recup,deNet,ueNet,tvaDEeur,transpEUR,eurPaid,chfPaid,fraisChange,avanceCost,avanceFx,valDouane,impotAuto,baseTVA,tvaCH,co2,homolog,deplacement,temps,garantie,coutDE,km};
+}
+
+function solve(p,key,lo,hi){
+  const f=v=>{const q={...p,[key]:v};const m=model(q);return m.coutDE-m.coutCH;};
+  let a=lo,b=hi,fa=f(a),fb=f(b);
+  if(fa*fb>0) return null;
+  for(let i=0;i<60;i++){const m=(a+b)/2,fm=f(m);if(fa*fm<=0){b=m;fb=fm}else{a=m;fa=fm}}
+  return (a+b)/2;
+}
+
+function row(l,v,cls){return `<div class="row ${cls||''}"><span>${l}</span><span>${v}</span></div>`}
+function sh(t){return `<div class="subhead">${t}</div>`}
+
+function chart(p,m){
+  const W=460,H=190,L=48,R=12,T=12,B=28;
+  const r0=0.85,r1=1.05,steps=40;
+  const pts=[];for(let i=0;i<=steps;i++){const r=r0+(r1-r0)*i/steps;const mm=model({...p,taux:r});pts.push([r,mm.coutCH-mm.coutDE]);}
+  let ymin=Math.min(0,...pts.map(x=>x[1])),ymax=Math.max(0,...pts.map(x=>x[1]));
+  const pad=(ymax-ymin)*0.1||1000;ymin-=pad;ymax+=pad;
+  const X=r=>L+(r-r0)/(r1-r0)*(W-L-R), Y=v=>T+(ymax-v)/(ymax-ymin)*(H-T-B);
+  const step=niceStep((ymax-ymin)/4);
+  let g='';
+  for(let v=Math.ceil(ymin/step)*step;v<=ymax;v+=step){g+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--border)" stroke-width="1"/><text x="${L-6}" y="${Y(v)+3}" text-anchor="end" font-size="10" fill="var(--muted)">${Math.round(v/1000)}k</text>`;}
+  for(let r=0.85;r<=1.0501;r+=0.05){g+=`<text x="${X(r)}" y="${H-8}" text-anchor="middle" font-size="10" fill="var(--muted)">${r.toFixed(2)}</text>`;}
+  const d=pts.map((q,i)=>(i?'L':'M')+X(q[0]).toFixed(1)+' '+Y(q[1]).toFixed(1)).join(' ');
+  const cur=m.coutCH-m.coutDE;const cx=Math.min(Math.max(p.taux,r0),r1);
+  const onChart=p.taux>=r0&&p.taux<=r1;
+  $('chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Économie de l'import selon le taux EUR/CHF">${g}
+  <line x1="${L}" x2="${W-R}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--muted)" stroke-width="1.2"/>
+  <path d="${d}" fill="none" stroke="var(--de)" stroke-width="2.5" stroke-linecap="round"/>
+  ${onChart?`<circle cx="${X(cx)}" cy="${Y(cur)}" r="5" fill="var(--de)" stroke="var(--card)" stroke-width="2"/>`:''}
+  </svg>`;
+}
+function niceStep(x){const e=Math.pow(10,Math.floor(Math.log10(x)));const f=x/e;return (f<1.5?1:f<3.5?2:f<7.5?5:10)*e;}
+
+function calc(){
+  const p=read();
+  $('fDelai').hidden=!p.avance;
+  $('fAvance').hidden=p.vendeur!=='normal';
+  $('fPlaques').hidden=p.mode!=='conduite';
+  $('fRetour').hidden=p.mode!=='conduite';
+  $('fCamion').hidden=p.mode!=='camion';
+  $('fHomolog').hidden=p.coc;
+  $('fGar').hidden=p.garOk;
+  $('fCo2').hidden=p.etat!=='neuf';
+  $('co2Hint').textContent=p.etat==='neuf'?"Sanction CO₂ : à calculer pour votre modèle sur le calculateur de l'OFEN, elle peut dépasser plusieurs milliers de francs.":"Occasion de plus de 6 mois et 5'000 km : pas de sanction CO₂.";
+  $('vendeurHint').textContent=p.vendeur==='normal'
+    ?"Le vendeur vous facture hors TVA allemande contre preuve d'export (cachet de la douane sur le document d'export). Certains exigent une caution égale à la TVA, remboursée ensuite."
+    :"Aucune TVA allemande récupérable : le prix payé entre en entier dans la base des taxes suisses.";
+  $('modeHint').textContent=p.mode==='conduite'
+    ?"Aller en train ou covoiturage, retour au volant. Passez par un poste de douane ouvert au dédouanement commercial pendant ses heures d'ouverture."
+    :"Le transporteur dédouane souvent pour vous (frais de transitaire en plus). Un seul aller-retour est compté pour signer ou voir le véhicule.";
+  const c=CANTONS.find(x=>x[0]===p.canton||x[0]===selC.value);
+  $('cantonHint').textContent=`${c[1]} : environ ${c[2]} km jusqu'à la frontière allemande depuis le chef-lieu (modifiable dans Transport). Taxes d'importation fédérales, identiques dans tous les cantons.`;
+
+  const m=model(p);
+  const diff=m.coutCH-m.coutDE; // >0 : import gagnant
+  const pct=diff/m.coutCH*100;
+  const win=diff>0?'de':'ch';
+  $('verdict').innerHTML= Math.abs(diff)<200
+    ?'Pratiquement équivalent'
+    :(win==='de'?`L'import d'Allemagne fait économiser <span class="amt">${fmt(diff)}</span>`:`Acheter en Suisse fait économiser <span class="amt">${fmt(-diff)}</span>`);
+  $('verdictSub').textContent=`Coût d'achat net, véhicule immatriculé, TVA suisse comprise. Écart : ${Math.abs(pct).toFixed(1)} %.`;
+  document.body.dataset.win=Math.abs(diff)<200?'eq':win;
+  $('topbar').innerHTML=`<span class="tb-ch">Suisse <b>${fmt(m.coutCH)}</b></span><span class="tb-de">Import <b>${fmt(m.coutDE)}</b></span>`+(Math.abs(diff)<200?'':`<span class="tb-win">${diff>0?'Import':'Suisse'} −${fmt(Math.abs(diff))}</span>`);
+  const mx=Math.max(m.coutCH,m.coutDE,1);
+  $('bars').innerHTML=[['Suisse',m.coutCH,'--ch'],['Import DE',m.coutDE,'--de']].map(b=>`<div class="bar-row"><span class="n">${b[0]}</span><div class="bar-track"><div class="bar-fill" style="width:${Math.max(b[1],0)/mx*100}%;background:var(${b[2]})"></div></div><span class="v">${fmt(b[1])}</span></div>`).join('');
+
+  const be=solve(p,'taux',0.3,2);
+  $('beRate').textContent=be?be.toFixed(4):'—';
+  const bp=solve(p,'prixDE',0,Math.max(p.prixDE*4,100000));
+  $('bePrice').textContent=bp?fmtE(bp)+' TTC':'—';
+  $('beRate').title=be?(win==='de'?"L'import reste gagnant tant que l'euro vaut moins que ce taux.":"L'import deviendrait gagnant si l'euro tombait sous ce taux."):'';
+
+  let h='';
+  h+=row('Prix TTC après remise'+(p.livrCH?' + livraison':''),fmt(m.chTTC));
+  h+=row('dont TVA suisse 8,1 % (payée)',fmt(m.chTTC-m.chTTC/1.081),'mute');
+  if(p.bonusCH) h+=row('Primes suisses','−'+fmt(p.bonusCH),'neg');
+  if(p.servCH) h+=row('Entretien gratuit inclus','−'+fmt(p.servCH),'neg');
+  if(p.equipCH) h+=row('Équipements en plus','−'+fmt(p.equipCH),'neg');
+  h+=row('Coût d\'achat net',fmt(m.coutCH),'total');
+  $('chBreak').innerHTML=h;
+
+  h='';
+  h+=sh('Achat en Allemagne');
+  h+=row('Prix TTC après remise',fmtE(m.deTTC),'mute');
+  if(m.recup) h+=row(`TVA allemande ${p.tvaDE} % remboursée à l'export`,'−'+fmtE(m.tvaDEeur),'neg');
+  h+=row('Prix + frais vendeur + '+(p.mode==='conduite'?'plaques export':'transport'),fmtE(m.eurPaid));
+  h+=row(`Converti à ${(p.taux*(1+p.margeFx/100)).toFixed(4)} + virement`,fmt(m.chfPaid));
+  h+=row('dont frais de change',fmt(m.fraisChange),'mute');
+  if(m.avanceFx||m.avanceCost) h+=row('TVA avancée : change aller-retour + capital immobilisé',fmt(m.avanceFx+m.avanceCost));
+  h+=sh('Douane suisse');
+  h+=row(`Valeur déclarée (au taux ${p.taux.toFixed(4)})`,fmt(m.valDouane),'mute');
+  h+=row('Impôt sur les automobiles 4 %',fmt(m.impotAuto));
+  h+=row(`TVA 8,1 % sur ${fmt(m.baseTVA)}`,fmt(m.tvaCH));
+  h+=row('Émoluments'+(p.transitaire?' + transitaire':''),fmt(p.emol+p.transitaire));
+  if(m.co2) h+=row('Sanction CO₂',fmt(m.co2));
+  h+=sh('Homologation & logistique');
+  h+=row('Expertise d\'importation'+(p.emiss?' + tests':''),fmt(p.mfk+p.emiss));
+  if(m.homolog) h+=row('Homologation individuelle (pas de COC)',fmt(m.homolog));
+  h+=row(`Déplacement (${m.km} km par trajet)`,fmt(m.deplacement));
+  if(m.temps) h+=row(`Temps (${p.heures} h)`,fmt(m.temps));
+  if(m.garantie) h+=row('Extension de garantie',fmt(m.garantie));
+  h+=row('Coût d\'achat net',fmt(m.coutDE),'total');
+  $('deBreak').innerHTML=h;
+
+  chart(p,m);
+}
+document.querySelectorAll('input,select').forEach(e=>e.addEventListener('input',calc));
+$('fxRef').textContent=`Taux de référence du ${FX_REF.date} : ${FX_REF.rate.toFixed(4)}`;
+$('fxReset').addEventListener('click',()=>{$('taux').value=FX_REF.rate;calc();});
+calc();
+</script>
+<script>
+// Préremplissage depuis l'appli : leasing.html#prix=45000&dC=36 … (ids des champs ; cases à cocher : 1/0)
+(function(){
+  function apply(){
+    var h=new URLSearchParams(location.hash.slice(1)),any=false;
+    h.forEach(function(v,k){var el=document.getElementById(k);if(!el)return;any=true;if(el.type==='checkbox')el.checked=(v==='1'||v==='true');else el.value=v;});
+    if(any){document.querySelectorAll('input,select').forEach(function(e){e.dispatchEvent(new Event('input',{bubbles:true}));});}
+  }
+  window.addEventListener('hashchange',apply);apply();
+})();
+</script>
+
+</html>

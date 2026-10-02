@@ -18,6 +18,8 @@
     <button data-tab="estimate">Estimer</button>
     <button data-tab="options">Options</button>
     <button data-tab="listings">Annonces</button>
+    <button data-tab="leasing">Crédit / leasing</button>
+    <button data-tab="import">Import DE ↔ CH</button>
     <button data-tab="watch">Suivi</button>
     <button data-tab="sources">Sources</button>
   </nav>
@@ -37,7 +39,7 @@
       <div class="scroll"><table id="segtable"><thead><tr>
         <th data-sort="segment">Segment</th><th data-sort="n" class="num">Annonces</th><th data-sort="median_age" class="num">Âge méd.</th>
         <th data-sort="median_km" class="num">Km méd.</th><th data-sort="median_de_eur" class="num">Médiane DE</th>
-        <th data-sort="median_ch_eur" class="num">Médiane CH</th><th data-sort="ch_premium_pct" class="num">CH vs DE</th>
+        <th data-sort="median_ch_eur" class="num col-ch">Médiane CH</th><th data-sort="ch_premium_pct" class="num col-ch">CH vs DE</th>
         <th data-sort="trend_pct" class="num">Tendance</th></tr></thead><tbody></tbody></table></div>
       <p class="hint">Prix demandés (pas de transactions). La tendance n'apparaît qu'après plusieurs jours de collecte.</p>
     </div>
@@ -64,7 +66,8 @@
           <label>Kilométrage<input type="number" id="f-km" min="0" step="500" value="30000"></label>
           <label>Km par an prévus<input type="number" id="f-kmpy" min="0" step="500" placeholder="auto"></label>
         </div>
-        <fieldset><legend>Équipements</legend><div id="f-options" class="chips"></div></fieldset>
+        <fieldset><legend>Équipements proposés sur ce modèle</legend><div id="f-options" class="chips"></div></fieldset>
+        <fieldset><legend>Carrosserie et transmission</legend><div id="f-bodies" class="chips"></div></fieldset>
         <fieldset><legend>État et historique</legend><div id="f-flags" class="chips"></div></fieldset>
         <div class="actions">
           <button type="submit" class="primary">Estimer</button>
@@ -79,7 +82,8 @@
   <section id="tab-options" class="tab">
     <div class="panel">
       <div class="panel-h"><h2>Quelles options pour la revente ?</h2>
-        <label class="inline">Modèle<select id="o-family"></select></label></div>
+        <div class="actions"><label class="inline">Modèle<select id="o-family"></select></label>
+          <label class="inline">Génération<select id="o-gen"></select></label></div></div>
       <div id="o-note" class="hint"></div>
       <div id="o-groups"></div>
     </div>
@@ -99,11 +103,21 @@
         <input id="l-kmmax" type="number" min="0" step="1000" placeholder="Km max">
       </div>
       <details class="more"><summary>Options exigées <span id="l-opt-n" class="muted"></span></summary>
-        <div id="l-options" class="chips"></div><div id="l-flags" class="chips"></div></details>
+        <div id="l-options" class="chips"></div><div id="l-bodies" class="chips"></div><div id="l-flags" class="chips"></div></details>
       <div class="scroll"><table id="ltable"><thead><tr><th>Annonce</th><th class="num">Année</th><th class="num">Km</th>
         <th class="num">Prix</th><th class="num">Cote</th><th class="num">Écart</th></tr></thead><tbody></tbody></table></div>
       <p class="hint" id="l-count"></p>
     </div>
+  </section>
+
+  <!-- CRÉDIT / LEASING -->
+  <section id="tab-leasing" class="tab">
+    <iframe id="fr-leasing" class="calc" data-src="/leasing" title="Comparateur crédit vs leasing"></iframe>
+  </section>
+
+  <!-- IMPORT DE ↔ CH -->
+  <section id="tab-import" class="tab">
+    <iframe id="fr-import" class="calc" data-src="/import" title="Comparateur achat en Suisse ou import d'Allemagne"></iframe>
   </section>
 
   <!-- SUIVI -->
@@ -130,6 +144,7 @@
     <button class="primary" type="submit">Entrer</button><p class="hint" id="login-err"></p></form>
 </div>
 
+<div id="toast" class="toast" role="status" hidden></div>
 <footer>Estimations statistiques indicatives à partir d'annonces publiques : ce n'est ni une expertise ni un conseil en investissement.</footer>
 <script src="app.js"></script>
 </body>

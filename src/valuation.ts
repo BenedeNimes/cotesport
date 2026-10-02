@@ -1,5 +1,5 @@
 // Cote par régression hédonique (ridge sur ln du prix), fourchettes, projections et classement des options.
-import { COND_KEYS, OPT_KEYS, CATALOG } from "./options";
+import { COND_KEYS, OPT_KEYS, CATALOG, expectedSign } from "./options";
 import {
   cholesky, dot, inverse, matmul, matvec, median, mulberry32, normal, percentile, quad, std, xtx, xty, eye, type Mat,
 } from "./linalg";
@@ -7,6 +7,8 @@ import {
 export const RIDGE = 0.5;
 export const KM_PRIOR_LAMBDA = 30;
 export const Z80 = 1.2816;
+/** au-delà, l'effet d'une seule option sur le prix est jugé invraisemblable (confusion avec autre chose) */
+export const MAX_OPTION_EFFECT = 0.25;
 
 export interface Settings { minSegmentN: number; minProjectionN: number; marketVol: number; fxFallback: number }
 export const DEFAULTS: Settings = { minSegmentN: 15, minProjectionN: 30, marketVol: 0.05, fxFallback: 1.07 };
@@ -31,6 +33,8 @@ const monthsSince = (t0: Date | null, t: Date | null | undefined) => (!t0 || !t 
 export interface Fit {
   cols: string[]; beta: number[]; cov: Mat; sigma: number; n: number; r2: number; t0: Date | null; refVersion: string;
   ageMax: number; kmMax: number; support: Map<string, [number, number]>;
+  /** caractéristiques écartées parce que leur effet mesuré est contraire à la logique ou invraisemblable */
+  dropped: Map<string, "sign" | "implausible">;
 }
 const idx = (f: Fit, col: string): number => f.cols.indexOf(col);
 
@@ -91,26 +95,50 @@ export function fitModel(rows: Row[], o: { withGeneration: boolean; minSupport?:
   const t0 = fss.length ? new Date(Math.min(...fss.map((d) => d.getTime()))) : null;
   if (fss.length && (Math.max(...fss.map((d) => d.getTime())) - Math.min(...fss.map((d) => d.getTime()))) / 86400000 >= 180) cols.push("t");
 
-  const X = rows.map((r) => rowX(r, cols, t0));
   const y = rows.map((r) => Math.log(r.priceEur));
-  const p = cols.length;
-  const lam = new Array(p).fill(RIDGE); lam[0] = 0;
-  const beta0 = new Array(p).fill(0);
-  if (o.kmPrior != null && cols.includes("km")) { const i = cols.indexOf("km"); lam[i] = KM_PRIOR_LAMBDA; beta0[i] = o.kmPrior; }
-  const XtX = xtx(X);
-  const A = XtX.map((r, i) => r.map((v, j) => v + (i === j ? lam[i] : 0)));
-  let Ainv = inverse(A);
-  if (!Ainv) Ainv = inverse(A.map((r, i) => r.map((v, j) => v + (i === j ? 1e-6 : 0)))) ?? eye(p);
-  const rhs = xty(X, y).map((v, i) => v + lam[i] * beta0[i]);
-  const beta = matvec(Ainv, rhs);
-  const resid = y.map((v, i) => v - dot(X[i], beta));
-  const ssr = resid.reduce((s, e) => s + e * e, 0);
-  const dof = Math.max(1, n - p);
-  const sigma = Math.sqrt(ssr / dof);
-  const cov = matmul(matmul(Ainv, XtX), Ainv).map((r) => r.map((v) => v * sigma * sigma));
   const ym = y.reduce((a, b) => a + b, 0) / n;
   const ssTot = y.reduce((s, v) => s + (v - ym) ** 2, 0) || 1;
-  return { cols, beta, cov, sigma, n, r2: 1 - ssr / ssTot, t0, refVersion: refV, ageMax: Math.max(...ages), kmMax: Math.max(...kms), support };
+  const dropped = new Map<string, "sign" | "implausible">();
+
+  const solve = (cs: string[]) => {
+    const X = rows.map((r) => rowX(r, cs, t0));
+    const p = cs.length;
+    const lam = new Array(p).fill(RIDGE); lam[0] = 0;
+    const beta0 = new Array(p).fill(0);
+    if (o.kmPrior != null && cs.includes("km")) { const i = cs.indexOf("km"); lam[i] = KM_PRIOR_LAMBDA; beta0[i] = o.kmPrior; }
+    const XtX = xtx(X);
+    const A = XtX.map((r, i) => r.map((v, j) => v + (i === j ? lam[i] : 0)));
+    let Ainv = inverse(A);
+    if (!Ainv) Ainv = inverse(A.map((r, i) => r.map((v, j) => v + (i === j ? 1e-6 : 0)))) ?? eye(p);
+    const rhs = xty(X, y).map((v, i) => v + lam[i] * beta0[i]);
+    const beta = matvec(Ainv, rhs);
+    const resid = y.map((v, i) => v - dot(X[i], beta));
+    const ssr = resid.reduce((s, e) => s + e * e, 0);
+    const dof = Math.max(1, n - p);
+    const sigma = Math.sqrt(ssr / dof);
+    const cov = matmul(matmul(Ainv, XtX), Ainv).map((r) => r.map((v) => v * sigma * sigma));
+    return { beta, cov, sigma, r2: 1 - ssr / ssTot };
+  };
+
+  // Une option dont l'effet mesuré est contraire à la logique (ex. « garantie » qui ferait baisser le prix) ou invraisemblable
+  // traduit presque toujours une confusion avec autre chose (type de vendeur, état, historique) : on l'écarte et on réajuste,
+  // plutôt que d'afficher un chiffre trompeur.
+  let sol = solve(cols);
+  for (let pass = 0; pass < 4; pass++) {
+    const bad: Array<[string, "sign" | "implausible"]> = [];
+    cols.forEach((c, i) => {
+      if (!c.startsWith("opt:") && !c.startsWith("cond:")) return;
+      const key = c.slice(c.indexOf(":") + 1), b = sol.beta[i], sg = expectedSign(key);
+      if (sg !== 0 && b * sg < -0.004) bad.push([c, "sign"]);
+      else if (Math.abs(Math.exp(b) - 1) > MAX_OPTION_EFFECT) bad.push([c, "implausible"]);
+    });
+    if (!bad.length) break;
+    for (const [c, why] of bad) dropped.set(c, why);
+    cols = cols.filter((c) => !dropped.has(c));
+    sol = solve(cols);
+  }
+  const { beta, cov, sigma, r2 } = sol;
+  return { cols, beta, cov, sigma, n, r2, t0, refVersion: refV, ageMax: Math.max(...ages), kmMax: Math.max(...kms), support, dropped };
 }
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
@@ -233,6 +261,8 @@ export class ValuationService {
         if (i >= 0) {
           const se = Math.sqrt(Math.max(fit.cov[i][i], 1e-12));
           out.push({ label: CATALOG[key].label, pct: pctOf(fit.beta[i]), significatif: Math.abs(fit.beta[i] / se) >= 2 });
+        } else if (fit.dropped.has(`${kind}:${key}`)) {
+          out.push({ label: CATALOG[key].label, pct: null, significatif: false, note: "effet non mesurable de façon fiable : non compté dans la cote" });
         }
       }
     }
@@ -321,20 +351,45 @@ export class ValuationService {
     return out;
   }
 
-  optionsRanking(family: string) {
-    const rows = this.familyRows(family);
-    const res: { family: string; n: number; items: any[]; note: string } = { family, n: rows.length, items: [], note: "" };
-    const fit = this.famFit(family);
-    if (!fit) { res.note = `Pas assez d'annonces pour ${family} (minimum ${this.s.minSegmentN}).`; return res; }
+  /** Équipements réellement proposés pour une génération : vus dans les annonces du segment (ou, si le segment est petit, de la famille). */
+  compat(family: string, generation: string, genEnd: number | null): { options: string[]; conds: string[] } {
+    const seg = this.segmentRows(`${family} ${generation}`), fam = this.familyRows(family);
+    const options: string[] = [];
+    for (const key of OPT_KEYS) {
+      const my = CATALOG[key].minYear;
+      if (my && genEnd != null && genEnd < my) continue;
+      const nSeg = seg.reduce((s, r) => s + (r.opts.has(key) ? 1 : 0), 0);
+      const nFam = fam.reduce((s, r) => s + (r.opts.has(key) ? 1 : 0), 0);
+      if (nSeg >= 3 || (seg.length < 40 && nFam >= 6)) options.push(key);
+    }
+    return { options, conds: [...COND_KEYS] };
+  }
+
+  optionsRanking(family: string, generation?: string) {
+    const segment = generation ? `${family} ${generation}` : "";
+    const rows = generation ? this.segmentRows(segment) : this.familyRows(family);
+    const scope = generation ? segment : family;
+    const res: { family: string; generation: string | null; n: number; items: any[]; note: string } = { family, generation: generation ?? null, n: rows.length, items: [], note: "" };
+    const fit = generation ? (this.segFit(segment) ?? this.famFit(family)) : this.famFit(family);
+    if (!fit) { res.note = `Pas assez d'annonces pour ${scope} (minimum ${this.s.minSegmentN}).`; return res; }
     const chRows = rows.filter((r) => r.country === "CH"), deRows = rows.filter((r) => r.country !== "CH");
-    const fitCh = chRows.length >= 40 ? fitModel(chRows, { withGeneration: true, minSupport: 5 }) : null;
-    const fitDe = deRows.length >= 40 ? fitModel(deRows, { withGeneration: true, minSupport: 5 }) : null;
+    const fitCh = chRows.length >= 40 ? fitModel(chRows, { withGeneration: !generation, minSupport: 5 }) : null;
+    const fitDe = deRows.length >= 40 && chRows.length >= 40 ? fitModel(deRows, { withGeneration: !generation, minSupport: 5 }) : null;
     const days = this.daysOnMarket(family);
     for (const [kind, key] of [...OPT_KEYS.map((k) => ["opt", k]), ...COND_KEYS.map((k) => ["cond", k])] as Array<[string, string]>) {
       const [nWith, nWo] = fit.support.get(`${kind}:${key}`) ?? [0, 0];
-      const item: any = { key, label: CATALOG[key].label, kind: kind === "opt" ? "option" : "etat", n_with: nWith, n_without: nWo };
+      // une caractéristique absente de ce modèle n'est pas listée du tout
+      if (nWith === 0) continue;
+      const def = CATALOG[key];
+      const item: any = { key, label: def.label, kind: def.kind === "cond" ? "etat" : def.kind === "body" ? "carrosserie" : "option", n_with: nWith, n_without: nWo };
       const i = idx(fit, `${kind}:${key}`);
-      if (i < 0) { item.verdict = "insuffisant"; item.detail = "Trop peu d'annonces avec ou sans cette caractéristique."; res.items.push(item); continue; }
+      if (i < 0) {
+        const why = fit.dropped.get(`${kind}:${key}`);
+        if (why === "sign") { item.verdict = "non_mesurable"; item.detail = "L'écart de prix mesuré va à l'inverse de la logique (autre facteur en jeu : vendeur, état, historique) : non retenu."; }
+        else if (why === "implausible") { item.verdict = "non_mesurable"; item.detail = "Écart de prix mesuré invraisemblable pour une seule caractéristique : non retenu."; }
+        else { item.verdict = "insuffisant"; item.detail = "Trop peu d'annonces avec ou sans cette caractéristique."; }
+        res.items.push(item); continue;
+      }
       const b = fit.beta[i], se = Math.sqrt(Math.max(fit.cov[i][i], 1e-12)), t = b / se;
       item.pct = pctOf(b); item.t = r1(t);
       const sd = days[key];
@@ -343,9 +398,11 @@ export class ValuationService {
       const rel = sd ? gap / Math.max(sd.without, 1) : 0;
       const slow = !!sd && gap <= -14 && rel <= -0.3;
       const fast = !!sd && gap >= 14 && rel >= 0.3;
-      const positiveGood = key !== "accident" && key !== "tuned";
-      let verdict = t >= 2 ? (positiveGood ? "privilegier" : "neutre") : t <= -2 ? "eviter" : "neutre";
-      if (verdict === "neutre" && fast) { verdict = "privilegier"; item.detail = "Prix sans écart net, mais ces annonces partent plus vite."; }
+      const sg = expectedSign(key);
+      // une carrosserie ou une transmission décrit le modèle : on montre l'écart de prix, sans conseil
+      let verdict = def.kind === "body" ? "neutre" : t >= 2 ? (sg >= 0 ? "privilegier" : "neutre") : t <= -2 ? (sg <= 0 ? "eviter" : "neutre") : "neutre";
+      if (def.kind === "body") item.detail = "Écart de prix lié au type de modèle, pas un équipement à choisir.";
+      if (verdict === "neutre" && fast && def.kind !== "body" && sg >= 0) { verdict = "privilegier"; item.detail = "Prix sans écart net, mais ces annonces partent plus vite."; }
       if (verdict === "privilegier" && slow) item.detail = "Prix plus élevé, mais vente plus lente.";
       const mk: Record<string, { pct: number; t: number }> = {};
       for (const [lab, f2] of [["CH", fitCh], ["DE", fitDe]] as Array<[string, Fit | null]>) {
@@ -365,8 +422,8 @@ export class ValuationService {
       item.verdict = verdict;
       res.items.push(item);
     }
-    res.note = "Effets mesurés à état, âge et kilométrage comparables. Ce sont des corrélations : une option présente sur des voitures mieux entretenues peut paraître plus rentable qu'elle ne l'est.";
-    const order: Record<string, number> = { privilegier: 0, eviter: 1, neutre: 2, insuffisant: 3 };
+    res.note = "Effets mesurés à état, âge et kilométrage comparables, uniquement pour les caractéristiques présentes sur ce modèle. Ce sont des corrélations : une option présente sur des voitures mieux entretenues peut paraître plus rentable qu'elle ne l'est.";
+    const order: Record<string, number> = { privilegier: 0, eviter: 1, neutre: 2, non_mesurable: 3, insuffisant: 4 };
     res.items.sort((a, b) => order[a.verdict] - order[b.verdict] || Math.abs(b.t ?? 0) - Math.abs(a.t ?? 0));
     return res;
   }
